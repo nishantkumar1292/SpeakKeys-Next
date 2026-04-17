@@ -31,6 +31,7 @@ import helium314.keyboard.settings.screens.gesturedata.TWO_WEEKS_IN_MILLIS
 
 @Composable
 fun MainSettingsScreen(
+    onClickVoice: () -> Unit,
     onClickAbout: () -> Unit,
     onClickTextCorrection: () -> Unit,
     onClickPreferences: () -> Unit,
@@ -54,6 +55,12 @@ fun MainSettingsScreen(
             Column(
                 Modifier.verticalScroll(rememberScrollState()).then(Modifier.padding(innerPadding))
             ) {
+                Preference(
+                    name = stringResource(R.string.voice_settings_title),
+                    description = stringResource(R.string.voice_settings_main_summary),
+                    onClick = onClickVoice,
+                    icon = R.drawable.sym_keyboard_voice_rounded
+                ) { NextScreenIcon() }
                 Preference(
                     name = stringResource(R.string.language_and_layouts_title),
                     description = enabledSubtypes.joinToString(", ") { it.displayName() },
@@ -124,7 +131,7 @@ private fun PreviewScreen() {
     initPreview(LocalContext.current)
     Theme(previewDark) {
         Surface {
-            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            MainSettingsScreen({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
     }
 }

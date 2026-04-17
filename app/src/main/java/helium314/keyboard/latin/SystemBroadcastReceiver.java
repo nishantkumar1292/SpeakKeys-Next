@@ -6,6 +6,7 @@
 
 package helium314.keyboard.latin;
 
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -14,6 +15,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
+
+import java.util.List;
 
 import helium314.keyboard.latin.utils.KtxKt;
 import helium314.keyboard.latin.utils.Log;
@@ -77,11 +80,32 @@ public final class SystemBroadcastReceiver extends BroadcastReceiver {
                 !imm.getInputMethodList().isEmpty();
         final boolean isCurrentImeOfCurrentUser = isInputMethodManagerValidForUserOfThisProcess
                 && UncachedInputMethodManagerUtils.isThisImeCurrent(context, imm);
-        if (!isCurrentImeOfCurrentUser) {
+        // Don't kill the process if the app has foreground/visible components
+        // (e.g. the launcher Activity is coming up). On fresh installs, Android
+        // delivers BOOT_COMPLETED to the newly-installed app right as the
+        // launcher Activity is being created; killing would restart the
+        // Activity, which would re-trigger broadcast delivery — producing an
+        // infinite splash-screen restart loop.
+        if (!isCurrentImeOfCurrentUser && !isProcessUserFacing(context)) {
             final int myPid = Process.myPid();
             Log.i(TAG, "Killing my process: pid=" + myPid);
             Process.killProcess(myPid);
         }
+    }
+
+    private static boolean isProcessUserFacing(final Context context) {
+        if (App.activeActivities > 0) return true;
+        final ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (am == null) return false;
+        final List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+        if (procs == null) return false;
+        final int myPid = Process.myPid();
+        for (ActivityManager.RunningAppProcessInfo p : procs) {
+            if (p.pid == myPid) {
+                return p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+            }
+        }
+        return false;
     }
 
     public static void toggleAppIcon(final Context context) {

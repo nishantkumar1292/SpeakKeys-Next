@@ -15,3 +15,6 @@ tools/*.txt
 *.patch
 *.diff
 *.sh
+
+# Firebase config (contains API key and OAuth client IDs) — must be supplied locally
+app/google-services.json

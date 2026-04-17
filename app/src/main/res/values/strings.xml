@@ -9,11 +9,11 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2"
     tools:ignore="MissingTranslation">
     <!-- Name of Android spell checker service. The app name should not be translated. -->
-    <string name="spell_checker_service_name">HeliBoard Spell Checker</string>
+    <string name="spell_checker_service_name">SpeakKeys Spell Checker</string>
     <!-- Title for IME settings screen. The app name should not be translated. -->
-    <string name="ime_settings">HeliBoard Settings</string>
+    <string name="ime_settings">SpeakKeys Settings</string>
     <!-- Title for the spell checking service settings screen. The app name should not be translated. -->
-    <string name="android_spell_checker_settings">HeliBoard Spell Checker Settings</string>
+    <string name="android_spell_checker_settings">SpeakKeys Spell Checker Settings</string>
     <!-- Option to provide vibrate/haptic feedback on keypress -->
     <string name="vibrate_on_keypress">Vibrate on keypress</string>
     <!-- Option to provide vibrate/haptic feedback on keypress even in do not disturb mode -->
@@ -967,7 +967,7 @@ New dictionary:
         Submitted data will be downloaded and deleted from the ProtonMail mailbox where it is stored at our earliest convenience.
         After the gesture data gathering phase has ended, the accumulated data set from all users will be published under the Creative Commons BY-SA 4.0 license.\n\n
 
-        As part of trying to protect your privacy, you won\'t be listed explicitly as an author. Your credit will be as \"The HeliBoard Gesture Data Project Contributors.\" It should not be possible to connect the data you generate in this screen to your identity. However, it might be possible to determine which gestures were made by the same person.
+        As part of trying to protect your privacy, you won\'t be listed explicitly as an author. Your credit will be as \"The SpeakKeys Gesture Data Project Contributors.\" It should not be possible to connect the data you generate in this screen to your identity. However, it might be possible to determine which gestures were made by the same person.
         This can be done e.g. from a custom keyboard layout, keyboard dimensions, language, or individual gesturing style.\n\n
     </string>
     <!-- Button text for showing gesture_data_description_privacy
@@ -991,7 +991,7 @@ New dictionary:
     <!-- Text requesting the user to gesture a word
      string will probably be removed once data gathering is finished (end of 2026 latest) -->
     <string name="gesture_data_please_type">Please gesture type:</string>
-    <!-- Text requesting the user to switch to HeliBoard, in case a different keyboard app is active
+    <!-- Text requesting the user to switch to SpeakKeys, in case a different keyboard app is active
      string will probably be removed once data gathering is finished (end of 2026 latest) -->
     <string name="gesture_data_please_switch_keyboard">Please switch to %s</string>
     <!-- Button for saving data and go to next word (now only shows up when the word %s is not in suggestions)
@@ -1074,7 +1074,7 @@ New dictionary:
      string will probably be removed once data gathering is finished (end of 2026 latest) -->
     <string name="gesture_data_promotion_message">
         Hey there!\n
-        Since you installed the gesture typing library, you might be interested in HeliBoard\'s project for creating a fully open gesture typing library.
+        Since you installed the gesture typing library, you might be interested in SpeakKeys\'s project for creating a fully open gesture typing library.
         You can help by contributing gesture data. For more information visit the gesture data gathering screen.
     </string>
     <!-- Message asking the user to contribute to gesture data gathering again (dialog in main settings)
@@ -1089,6 +1089,97 @@ New dictionary:
     <!-- Message followed by a list of links
      string will probably be removed once data gathering is finished (end of 2026 latest) -->
     <string name="gesture_data_links">Information on gesture data gathering on:</string>
+
+    <!-- Voice Input strings -->
+    <string name="mic_info_error">Error</string>
+    <string name="mic_info_preparing">Preparing the recognizer</string>
+    <string name="mic_info_ready">Ready</string>
+    <string name="mic_info_hold_to_talk">Hold to talk</string>
+    <string name="mic_info_release_to_send">Release to send</string>
+    <string name="mic_info_release_soon">Release soon (max 30s)</string>
+    <string name="mic_info_processing">Processing…</string>
+    <string name="mic_error_no_recognizers">No recognizers configured yet.\nTap Settings and add one or more API keys (OpenAI or Sarvam).</string>
+    <string name="mic_error_no_permission">Microphone permission not granted!</string>
+    <string name="mic_error_recognizer_error">Recognizer error</string>
+    <string name="mic_error_mic_in_use">Microphone is already in use!</string>
+    <string name="mic_audio_device_title">Audio Input Device</string>
+    <string name="ime_action_enter">Enter</string>
+    <string name="ime_action_go">Go</string>
+    <string name="ime_action_search">Search</string>
+    <string name="ime_action_send">Send</string>
+    <string name="ime_action_next">Next</string>
+    <string name="ime_action_done">Done</string>
+    <string name="ime_action_previous">Previous</string>
+    <string name="voice_settings_title">Voice Input</string>
+    <string name="voice_settings_main_summary">SpeakKeys voice backends, API keys, and transcription behavior</string>
+    <string name="voice_settings_account_category">Account</string>
+    <string name="voice_settings_models_category">Recognizers</string>
+    <string name="voice_settings_api_category">API Configuration</string>
+    <string name="voice_settings_behavior_category">Behavior</string>
+    <string name="voice_settings_account_signed_out_summary">Sign in to enable the proxied SpeakKeys backend.</string>
+    <string name="voice_settings_account_signed_in_summary">Signed in for proxied recognition.</string>
+    <string name="voice_settings_sign_in">Sign in with Google</string>
+    <string name="voice_settings_sign_out">Sign out</string>
+    <string name="voice_settings_sign_in_failed">Google sign-in failed.</string>
+    <string name="voice_settings_refresh_models">Refresh recognizers</string>
+    <string name="voice_settings_refresh_models_summary">Reload the voice backends that are available with your current auth and API keys.</string>
+    <string name="voice_settings_no_models_title">No recognizers available</string>
+    <string name="voice_settings_no_models_summary">Add an API key or sign in to SpeakKeys Auto to enable voice transcription.</string>
+    <string name="voice_settings_models_summary">SpeakKeys tries recognizers in this order. Move your preferred backend to the top.</string>
+    <string name="voice_settings_last_used_model">Last used</string>
+    <string name="voice_settings_priority_prefix">Priority %1$d</string>
+    <string name="voice_settings_not_set">Not set</string>
+    <string name="voice_settings_secret_set">Configured</string>
+    <string name="voice_settings_auto_detect">Auto-detect</string>
+    <string name="voice_settings_whisper_prompt_empty">No prompt configured</string>
+    <string name="voice_settings_move_up">Move up</string>
+    <string name="voice_settings_move_down">Move down</string>
+    <string name="voice_settings_openai_api_key_title">OpenAI API key</string>
+    <string name="voice_settings_sarvam_api_key_title">Sarvam API key</string>
+    <string name="voice_settings_whisper_language_title">Whisper language</string>
+    <string name="voice_settings_whisper_prompt_title">Whisper prompt</string>
+    <string name="voice_settings_whisper_transliterate_title">Transliterate Hindi to Roman</string>
+    <string name="voice_settings_whisper_transliterate_summary">Convert Devanagari Whisper output into Roman text before inserting it.</string>
+    <string name="voice_settings_sarvam_mode_title">Sarvam mode</string>
+    <string name="voice_settings_sarvam_language_title">Sarvam language</string>
+    <string name="voice_settings_sarvam_mode_translit">Transliterate (Roman)</string>
+    <string name="voice_settings_sarvam_mode_transcribe">Native Script</string>
+    <string name="voice_settings_auto_capitalize_title">Auto-capitalize voice results</string>
+    <string name="voice_settings_auto_capitalize_summary">Apply sentence capitalization before committing recognized text.</string>
+    <string name="voice_settings_model_type_whisper">OpenAI Whisper</string>
+    <string name="voice_settings_model_type_sarvam">Sarvam Cloud</string>
+    <string name="voice_settings_model_type_proxied">SpeakKeys Auto</string>
+    <string name="default_web_client_id" translatable="false">669141656625-eh9cbtv0tmjmuhvdv49buf8auggpvjrt.apps.googleusercontent.com</string>
+
+    <!-- Home screen -->
+    <string name="home_tagline">A voice-first keyboard with full typing support. Try it out below.</string>
+    <string name="home_status_label">STATUS</string>
+    <string name="home_status_active">Active</string>
+    <string name="home_status_needs_setup">Needs Setup</string>
+    <string name="home_voice_engine_label">VOICE ENGINE</string>
+    <string name="home_engine_needs_setup">Configure in settings</string>
+    <string name="home_test_drive_title">Test Drive</string>
+    <string name="home_test_drive_hint">Try typing here with SpeakKeys once your setup is active.</string>
+    <string name="home_test_drive_clear">Clear</string>
+    <string name="home_keyboard_settings">Keyboard Settings</string>
+    <!-- Home screen: label above the "keyboard enabled" status card -->
+    <string name="home_status_enabled_label">ENABLED</string>
+    <!-- Home screen: value when the keyboard is enabled in system settings -->
+    <string name="home_status_enabled_yes">Ready</string>
+    <!-- Home screen: value when the keyboard is NOT enabled in system settings -->
+    <string name="home_status_enabled_no">Not enabled</string>
+    <!-- Home screen: label above the "keyboard active" status card -->
+    <string name="home_status_active_label">ACTIVE</string>
+    <!-- Home screen: value when the keyboard is the currently selected input method -->
+    <string name="home_status_active_yes">Selected</string>
+    <!-- Home screen: value when the keyboard is NOT the currently selected input method -->
+    <string name="home_status_active_no">Not selected</string>
+    <!-- Home screen: button that opens the system input method settings -->
+    <string name="home_action_enable">Enable keyboard</string>
+    <!-- Home screen: button that opens the input method picker to switch keyboards -->
+    <string name="home_action_switch">Switch keyboard</string>
+    <!-- Home screen: button that opens the full settings screen -->
+    <string name="home_action_settings">Settings</string>
 
     <!-- new strings should go above the section for gesture data gathering -->
 </resources>

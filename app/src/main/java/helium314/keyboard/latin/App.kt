@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
 package helium314.keyboard.latin
 
+import android.app.Activity
 import android.app.Application
 import android.os.Build
+import android.os.Bundle
+import com.google.firebase.FirebaseApp
+import dev.patrickgold.jetpref.datastore.JetPref
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
 import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.Defaults
@@ -10,13 +14,33 @@ import helium314.keyboard.latin.settings.Settings
 import helium314.keyboard.latin.utils.LayoutUtilsCustom
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.SubtypeSettings
+import helium314.keyboard.voice.AppCtx
+import helium314.keyboard.voice.speakKeysPreferenceModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class App : Application() {
+    private val voicePrefs by speakKeysPreferenceModel()
+
     override fun onCreate() {
         super.onCreate()
+        registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) { activeActivities++ }
+            override fun onActivityDestroyed(activity: Activity) { activeActivities-- }
+            override fun onActivityStarted(activity: Activity) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityStopped(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        })
+        JetPref.configure(
+            saveIntervalMs = 500,
+            encodeDefaultValues = true,
+        )
+        voicePrefs.initializeBlocking(this)
+        AppCtx.setAppCtx(this)
+        FirebaseApp.initializeApp(this)
         DebugFlags.init(this)
         Settings.init(this)
         SubtypeSettings.init(this)
@@ -49,5 +73,11 @@ class App : Application() {
             app = null
             return application
         }
+
+        // Count of Activities in the CREATED..DESTROYED window. Consulted by
+        // SystemBroadcastReceiver so it doesn't kill the process while the
+        // launcher Activity is starting up (which manifests as a splash-screen
+        // restart loop on fresh installs where BOOT_COMPLETED is delivered).
+        @Volatile @JvmField var activeActivities = 0
     }
 }
