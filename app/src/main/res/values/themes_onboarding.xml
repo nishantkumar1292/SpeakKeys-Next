@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Translucent status/nav bars, dark content window, no action bar.
+        The activity sets transparent system bars programmatically via WindowCompat;
+        this theme primarily keeps the first frame dark so there's no white flash.
+    -->
+    <style name="OnboardingActivityTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/onboarding_bg</item>
+        <item name="android:colorBackground">@color/onboarding_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

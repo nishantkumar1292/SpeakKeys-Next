@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_brand_wordmark" translatable="false">SpeakKeys</string>
+    <string name="onboarding_logo_content_description">SpeakKeys logo</string>
+    <string name="onboarding_pill_voice_first">Voice-first keyboard</string>
+    <string name="onboarding_welcome_title">Just hold, speak,\nand it\'s typed.</string>
+    <string name="onboarding_welcome_body">Your keyboard stays where it is — the top strip listens whenever you hold it.</string>
+    <string name="onboarding_cta_get_started">Get started</string>
+    <string name="onboarding_cta_get_started_sub">Takes under a minute · 3 quick steps</string>
+
+    <!-- Screen 2: Mic Permission -->
+    <string name="onboarding_permission_title">One tap to let us hear you.</string>
+    <string name="onboarding_permission_body">We only record when you hold the mic. Nothing stored, nothing sold.</string>
+    <string name="onboarding_permission_mic_disc_description">Microphone</string>
+    <string name="onboarding_permission_trust_on_device">On-device until you speak</string>
+    <string name="onboarding_permission_trust_no_sharing">Never shared, never sold</string>
+    <string name="onboarding_permission_cta_allow">Allow microphone</string>
+    <string name="onboarding_permission_cta_allow_sub">Takes one tap · can be turned off later</string>
+    <string name="onboarding_permission_cta_continue">Continue</string>
+    <string name="onboarding_permission_cta_continue_sub">Microphone access enabled</string>
+    <string name="onboarding_permission_skip">Not now</string>
+
+    <!-- Screen 3: Enable in Settings -->
+    <string name="onboarding_enable_title">Turn on SpeakKeys\nin your keyboards.</string>
+    <string name="onboarding_enable_body">We\'ll open the settings page — just flip the switch, and you\'re done.</string>
+    <string name="onboarding_enable_preview_header">On-screen keyboards</string>
+    <string name="onboarding_enable_row_gboard">Gboard</string>
+    <string name="onboarding_enable_row_gboard_desc">Google · currently enabled</string>
+    <string name="onboarding_enable_row_speakkeys">SpeakKeys</string>
+    <string name="onboarding_enable_row_speakkeys_desc">Voice-first keyboard</string>
+    <string name="onboarding_enable_row_samsung">Samsung Keyboard</string>
+    <string name="onboarding_enable_row_samsung_desc">Built-in</string>
+    <string name="onboarding_enable_aside_flip">flip this on</string>
+    <string name="onboarding_enable_cta">Open keyboard settings</string>
+    <string name="onboarding_enable_cta_sub">We\'ll take you right to the switch</string>
+    <string name="onboarding_enable_cta_continue">Continue</string>
+    <string name="onboarding_enable_cta_continue_sub">SpeakKeys is enabled</string>
+    <string name="onboarding_enable_skip">I\'ll do it myself</string>
+
+    <!-- Screen 4: Switch Input Method -->
+    <string name="onboarding_switch_title">Now pick SpeakKeys\nas your keyboard.</string>
+    <string name="onboarding_switch_body">When the little sheet slides up, tap SpeakKeys. One last tap.</string>
+    <string name="onboarding_switch_sheet_header">Choose input method</string>
+    <string name="onboarding_switch_aside_pick_me">pick me!</string>
+    <string name="onboarding_switch_cta">Show me how</string>
+    <string name="onboarding_switch_cta_sub">Opens the input method picker</string>
+    <string name="onboarding_switch_cta_done">You\'re all set</string>
+    <string name="onboarding_switch_cta_done_sub">SpeakKeys is your keyboard</string>
+    <string name="onboarding_switch_skip">I\'ll pick it later</string>
+</resources>

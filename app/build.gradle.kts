@@ -24,12 +24,31 @@ android {
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
 
+    signingConfigs {
+        create("release") {
+            val storePath = (project.findProperty("SPEAKKEYS_STORE_FILE") as String?)
+                ?: System.getenv("SPEAKKEYS_STORE_FILE")
+            if (storePath != null) {
+                storeFile = file(storePath)
+                storePassword = (project.findProperty("SPEAKKEYS_STORE_PASSWORD") as String?)
+                    ?: System.getenv("SPEAKKEYS_STORE_PASSWORD")
+                keyAlias = (project.findProperty("SPEAKKEYS_KEY_ALIAS") as String?)
+                    ?: System.getenv("SPEAKKEYS_KEY_ALIAS")
+                keyPassword = (project.findProperty("SPEAKKEYS_KEY_PASSWORD") as String?)
+                    ?: System.getenv("SPEAKKEYS_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = false
             isDebuggable = false
             isJniDebuggable = false
+            if (signingConfigs.getByName("release").storeFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         create("nouserlib") { // same as release, but does not allow the user to provide a library
             isMinifyEnabled = true

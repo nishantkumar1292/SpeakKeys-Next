@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
@@ -20,9 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
@@ -40,7 +36,6 @@ import helium314.keyboard.latin.utils.ExecutorUtils
 import helium314.keyboard.latin.utils.JniUtils
 import helium314.keyboard.latin.utils.GestureDataPromotionReminderDialog
 import helium314.keyboard.latin.utils.Theme
-import helium314.keyboard.latin.utils.UncachedInputMethodManagerUtils
 import helium314.keyboard.latin.utils.cleanUnusedMainDicts
 import helium314.keyboard.latin.utils.prefs
 import helium314.keyboard.settings.dialogs.ConfirmationDialog
@@ -78,7 +73,6 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
         }
         ExecutorUtils.getBackgroundExecutor(ExecutorUtils.KEYBOARD).execute { cleanUnusedMainDicts(this) }
         crashReportFiles.value = findCrashReports(!BuildConfig.DEBUG && !DebugFlags.DEBUG_ENABLED)
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
         settingsContainer = SettingsContainer(this)
 
@@ -92,10 +86,6 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                     val dictUri by dictUriFlow.collectAsState()
                     val crashReports by crashReportFiles.collectAsState()
                     val crashFilePicker = filePicker { saveCrashReports(it) }
-                    var showWelcomeWizard by rememberSaveable { mutableStateOf(
-                        !UncachedInputMethodManagerUtils.isThisImeCurrent(this, imm)
-                                || !UncachedInputMethodManagerUtils.isThisImeEnabled(this, imm)
-                    ) }
                     if (spellchecker)
                         Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { innerPadding ->
                             Column(Modifier.padding(innerPadding)) {
@@ -116,9 +106,7 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                             onClickBack = { this.finish() },
                             startDestination = intent?.getStringExtra(EXTRA_START_DESTINATION)
                         )
-                        if (showWelcomeWizard) {
-                            WelcomeWizard(close = { showWelcomeWizard = false }, finish = this::finish)
-                        } else if (crashReports.isNotEmpty()) {
+                        if (crashReports.isNotEmpty()) {
                             ConfirmationDialog(
                                 cancelButtonText = "ignore",
                                 onDismissRequest = { crashReportFiles.value = emptyList() },

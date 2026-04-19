@@ -6,6 +6,9 @@
 -->
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Onboarding window background — keep in sync with SpeakKeysColors.Bg in code. -->
+    <color name="onboarding_bg">#0B1220</color>
+
     <!-- Color resources for LXX_Light_Border/LXX_Base_Border theme.
          15%:0x26 70%:0xB3 75%:0xC0 80%:0xCC 85%:0xD9 90%:0xE6 -->
     <color name="keyboard_background_lxx_light_border">#E8EAED</color>

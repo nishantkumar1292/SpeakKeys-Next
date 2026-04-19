@@ -87,7 +87,6 @@ import helium314.keyboard.settings.SettingsActivity;
 import helium314.keyboard.settings.SettingsActivity2;
 import helium314.keyboard.settings.SettingsDestination;
 import helium314.keyboard.voice.VoiceInputManager;
-import helium314.keyboard.voice.VoiceKeyboardView;
 import kotlin.Unit;
 
 import java.io.FileDescriptor;
@@ -758,7 +757,7 @@ public class LatinIME extends InputMethodService implements
     @Override
     public void setInputView(final View view) {
         // Attach lifecycle owner to decor view BEFORE super.setInputView() adds the view to the
-        // window hierarchy — otherwise the ComposeView (VoiceKeyboardView) crashes with
+        // window hierarchy — otherwise any ComposeView in the tree crashes with
         // "ViewTreeLifecycleOwner not found" when it gets attached.
         if (mVoiceInputManager != null) {
             mVoiceInputManager.getLifecycleOwner().attachToDecorView(
@@ -770,8 +769,8 @@ public class LatinIME extends InputMethodService implements
         mInsetsUpdater = ViewOutlineProviderUtilsKt.setInsetsOutlineProvider(view);
         KtxKt.updateSoftInputWindowLayoutParameters(this, mInputView);
         updateSuggestionStripView(view);
-        if (mVoiceInputManager != null) {
-            mVoiceInputManager.bindView(view.findViewById(R.id.voice_keyboard_view));
+        if (mSuggestionStripView != null && mVoiceInputManager != null) {
+            mSuggestionStripView.setVoiceInputManager(mVoiceInputManager);
         }
     }
 
@@ -1016,7 +1015,6 @@ public class LatinIME extends InputMethodService implements
         if (mVoiceInputManager != null) {
             mVoiceInputManager.onStartInputView(editorInfo);
         }
-        mKeyboardSwitcher.setVoiceKeyboard();
     }
 
     @Override
@@ -1431,7 +1429,9 @@ public class LatinIME extends InputMethodService implements
     // completely replace #onCodeInput.
     public void onEvent(@NonNull final Event event) {
         if (KeyCode.VOICE_INPUT == event.getKeyCode()) {
-            mKeyboardSwitcher.setVoiceKeyboard();
+            if (mSuggestionStripView != null) {
+                mSuggestionStripView.onMicTap();
+            }
             return;
         }
         final InputTransaction completeInputTransaction =
@@ -1751,37 +1751,6 @@ public class LatinIME extends InputMethodService implements
         startActivity(intent);
     }
 
-    public void openVoiceSettings() {
-        mInputLogic.commitTyped(mSettings.getCurrent(), LastComposedWord.NOT_A_SEPARATOR);
-        requestHideSelf(0);
-        final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
-        if (mainKeyboardView != null) {
-            mainKeyboardView.closing();
-        }
-        final Intent intent = new Intent();
-        intent.setClass(LatinIME.this, SettingsActivity2.class);
-        intent.putExtra(SettingsActivity.EXTRA_START_DESTINATION, SettingsDestination.Voice);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(intent);
-    }
-
-    public void showVoiceKeyboard() {
-        mKeyboardSwitcher.setVoiceKeyboard();
-    }
-
-    public void showTypingKeyboard() {
-        mKeyboardSwitcher.setAlphabetKeyboard();
-    }
-
-    public void commitVoiceInlineText(@NonNull final String text) {
-        if (text.isEmpty()) {
-            return;
-        }
-        onTextInput(text);
-    }
-
     public void commitVoiceResult(@NonNull final String text) {
         if (text.isEmpty()) {
             return;
@@ -1789,37 +1758,6 @@ public class LatinIME extends InputMethodService implements
         mInputLogic.mConnection.finishComposingText();
         mInputLogic.mConnection.commitText(text, 1);
         mHandler.postUpdateSuggestionStrip(SuggestedWords.INPUT_STYLE_NONE);
-    }
-
-    public void handleVoiceBackspace() {
-        mInputLogic.sendDownUpKeyEvent(KeyEvent.KEYCODE_DEL);
-        mHandler.postUpdateSuggestionStrip(SuggestedWords.INPUT_STYLE_NONE);
-    }
-
-    public void moveVoiceCursor(final int delta) {
-        if (delta == 0) {
-            return;
-        }
-        final int currentPosition = delta < 0
-                ? mInputLogic.mConnection.getExpectedSelectionStart()
-                : mInputLogic.mConnection.getExpectedSelectionEnd();
-        final int newPosition = Math.max(0, currentPosition + delta);
-        mInputLogic.mConnection.finishComposingText();
-        mInputLogic.mConnection.setSelection(newPosition, newPosition);
-        mHandler.postUpdateSuggestionStrip(SuggestedWords.INPUT_STYLE_NONE);
-    }
-
-    public void performVoiceEnterAction() {
-        final EditorInfo editorInfo = getCurrentInputEditorInfo();
-        if (editorInfo != null && (editorInfo.imeOptions & EditorInfo.IME_FLAG_NO_ENTER_ACTION) == 0) {
-            final int action = editorInfo.imeOptions & EditorInfo.IME_MASK_ACTION;
-            final int actionId = editorInfo.actionId != 0 ? editorInfo.actionId : action;
-            if (actionId != EditorInfo.IME_ACTION_UNSPECIFIED && actionId != EditorInfo.IME_ACTION_NONE) {
-                mInputLogic.mConnection.performEditorAction(actionId);
-                return;
-            }
-        }
-        onTextInput("\n");
     }
 
     public void launchEmojiSearch() {

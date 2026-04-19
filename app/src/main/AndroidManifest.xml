@@ -57,12 +57,7 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
                 android:theme="@style/platformActivityTheme"
                 android:icon="@mipmap/ic_launcher"
                 android:windowSoftInputMode="adjustResize"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+                android:exported="true" />
 
         <!-- separate activity that's used internally, only necessary in case the launcher icon is disabled on Android < 10 -->
         <activity android:name="helium314.keyboard.settings.SettingsActivity2"
@@ -97,6 +92,21 @@ SPDX-License-Identifier: Apache-2.0 AND GPL-3.0-only
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:exported="false" />
+
+        <!--
+            Pre-setup welcome screen. Launcher entry point: if the IME is already enabled and
+            current, this activity forwards to SettingsActivity immediately; otherwise it shows
+            the onboarding flow.
+        -->
+        <activity android:name="helium314.keyboard.onboarding.OnboardingActivity"
+            android:theme="@style/OnboardingActivityTheme"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <!-- Broadcast receivers -->
         <receiver android:name="SystemBroadcastReceiver"

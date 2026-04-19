@@ -9,6 +9,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -27,6 +28,10 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.isVisible
 import helium314.keyboard.compat.isDeviceLocked
 import helium314.keyboard.event.HapticEvent
@@ -41,6 +46,9 @@ import helium314.keyboard.latin.SuggestedWords.SuggestedWordInfo
 import helium314.keyboard.latin.common.ColorType
 import helium314.keyboard.latin.common.Colors
 import helium314.keyboard.latin.common.Constants
+import helium314.keyboard.onboarding.SpeakKeysColors
+import helium314.keyboard.onboarding.WaveformBars
+import helium314.keyboard.voice.VoiceInputManager
 import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.DebugSettings
 import helium314.keyboard.latin.settings.Defaults
@@ -81,6 +89,8 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         fun removeExternalSuggestions()
         fun onSwipeDownOnToolbar()
     }
+
+    enum class V6BarState { IDLE, LISTENING, TRANSCRIBED, CORRECTING }
 
     private val moreSuggestionsContainer: View
     private val wordViews = ArrayList<TextView>()
@@ -132,6 +142,27 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         LinearLayout.LayoutParams.MATCH_PARENT
     )
 
+    // V6 mic + waveform
+    private val micButton = findViewById<ImageButton>(R.id.suggestions_strip_mic_key)
+    private val waveformView = findViewById<ComposeView>(R.id.voice_waveform_view)
+    private val defaultMicBackground: Drawable = micButton.background
+    private val listeningMicBackground = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(0xFF90CAF9.toInt()) // SpeakKeysColors.BrandGlow
+    }
+    private val waveformAnimating = mutableStateOf(false)
+    private var voiceInputManager: VoiceInputManager? = null
+    private var barState: V6BarState = V6BarState.IDLE
+    private val voiceStateListener = object : VoiceInputManager.StateListener {
+        override fun onVoiceIdle() {
+            if (barState == V6BarState.LISTENING) setBarState(V6BarState.IDLE, haptic = false)
+        }
+        override fun onVoiceError(message: String) {
+            if (barState == V6BarState.LISTENING) setBarState(V6BarState.IDLE, haptic = false)
+            KeyboardSwitcher.getInstance().showToast(message, false)
+        }
+    }
+
     init {
         val colors = Settings.getValues().mColors
 
@@ -144,6 +175,24 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         colors.setBackground(toolbarExpandKey, ColorType.STRIP_BACKGROUND) // necessary because background is re-used for defaultToolbarBackground
         colors.setColor(toolbarExpandKey, ColorType.TOOL_BAR_EXPAND_KEY)
         colors.setColor(toolbarExpandKey.background, ColorType.TOOL_BAR_EXPAND_KEY_BACKGROUND)
+
+        // V6 mic button
+        micButton.layoutParams.height = toolbarHeight
+        micButton.layoutParams.width = toolbarHeight
+        micButton.setImageDrawable(KeyboardIconsSet.instance.getNewDrawable(ToolbarKey.VOICE.name, context))
+        colors.setBackground(micButton, ColorType.STRIP_BACKGROUND)
+        colors.setColor(micButton, ColorType.TOOL_BAR_KEY)
+        micButton.setOnClickListener { onMicTap() }
+
+        // V6 waveform
+        waveformView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        waveformView.setContent {
+            WaveformBars(
+                animate = waveformAnimating.value,
+                barColor = ComposeColor.White,
+                glowColor = SpeakKeysColors.BrandGlow,
+            )
+        }
 
         // background indicator for pinned keys
         val color = colors.get(ColorType.TOOL_BAR_KEY_ENABLED_BACKGROUND) or -0x1000000 // ignore alpha (in Java this is more readable 0xFF000000)
@@ -341,7 +390,11 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             }
         }
         if (view === toolbarExpandKey) {
-            setToolbarVisibility(toolbarContainer.visibility != VISIBLE)
+            if (barState == V6BarState.LISTENING) {
+                cancelListening()
+            } else {
+                setToolbarVisibility(toolbarContainer.visibility != VISIBLE)
+            }
         }
 
         // tag for word views is set in SuggestionStripLayoutHelper (setupWordViewsTextAndColor, layoutPunctuationSuggestions)
@@ -555,10 +608,98 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         colors.setBackground(view, ColorType.STRIP_BACKGROUND)
     }
 
+    // V6 mic / voice wiring
+
+    fun setVoiceInputManager(manager: VoiceInputManager?) {
+        voiceInputManager?.setStateListener(null)
+        voiceInputManager = manager
+        manager?.setStateListener(voiceStateListener)
+    }
+
+    fun onMicTap() {
+        val vim = voiceInputManager ?: return
+        AudioAndHapticFeedbackManager.getInstance()
+            .performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS)
+        when (barState) {
+            V6BarState.IDLE -> {
+                vim.startListening()
+                if (vim.isListening) {
+                    setBarState(V6BarState.LISTENING, haptic = false) // haptic already played above
+                }
+                // else: VoiceInputManager fired onVoiceError → stay in IDLE
+            }
+            V6BarState.LISTENING -> {
+                vim.stopListening(commit = true)
+                setBarState(V6BarState.IDLE, haptic = false)
+            }
+            V6BarState.TRANSCRIBED, V6BarState.CORRECTING -> {
+                // TODO(v6): proper handling — for now, fall back to idle silently
+                setBarState(V6BarState.IDLE, haptic = false)
+            }
+        }
+    }
+
+    private fun cancelListening() {
+        val vim = voiceInputManager ?: return
+        vim.stopListening(commit = false)
+        setBarState(V6BarState.IDLE, haptic = false)
+    }
+
+    private fun setBarState(state: V6BarState, haptic: Boolean) {
+        if (barState == state) return
+        barState = state
+        if (haptic) {
+            AudioAndHapticFeedbackManager.getInstance()
+                .performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS)
+        }
+        when (state) {
+            V6BarState.LISTENING -> {
+                waveformAnimating.value = true
+                waveformView.alpha = 0f
+                waveformView.isVisible = true
+                suggestionsStrip.animate()
+                    .alpha(0f)
+                    .setDuration(FADE_DURATION_MS)
+                    .withEndAction { suggestionsStrip.isVisible = false; suggestionsStrip.alpha = 1f }
+                    .start()
+                waveformView.animate()
+                    .alpha(1f)
+                    .setStartDelay(FADE_DURATION_MS)
+                    .setDuration(FADE_DURATION_MS)
+                    .start()
+                micButton.background = listeningMicBackground
+                micButton.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            }
+            V6BarState.IDLE -> {
+                suggestionsStrip.alpha = 0f
+                suggestionsStrip.isVisible = true
+                waveformView.animate()
+                    .alpha(0f)
+                    .setDuration(FADE_DURATION_MS)
+                    .withEndAction {
+                        waveformView.isVisible = false
+                        waveformAnimating.value = false
+                    }
+                    .start()
+                suggestionsStrip.animate()
+                    .alpha(1f)
+                    .setStartDelay(FADE_DURATION_MS)
+                    .setDuration(FADE_DURATION_MS)
+                    .start()
+                micButton.background = defaultMicBackground.constantState?.newDrawable(resources) ?: defaultMicBackground
+                Settings.getValues().mColors.setColor(micButton, ColorType.TOOL_BAR_KEY)
+            }
+            V6BarState.TRANSCRIBED, V6BarState.CORRECTING -> {
+                // TODO(v6): stub states — no visual change for now
+            }
+        }
+    }
+
     companion object {
         @JvmField
         var DEBUG_SUGGESTIONS = false
         private const val DEBUG_INFO_TEXT_SIZE_IN_DIP = 6.5f
+        private const val FADE_DURATION_MS = 140L
         private val TAG = SuggestionStripView::class.java.simpleName
     }
 }

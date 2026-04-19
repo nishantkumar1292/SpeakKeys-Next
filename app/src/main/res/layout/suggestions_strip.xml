@@ -55,6 +55,12 @@
             android:gravity="center_horizontal"
             android:hapticFeedbackEnabled="false"
             android:soundEffectsEnabled="false" />
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/voice_waveform_view"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:visibility="gone" />
         <LinearLayout
             android:id="@+id/pinned_keys"
             android:orientation="horizontal"
@@ -63,5 +69,17 @@
             android:minWidth="0dp"
             style="?attr/suggestionWordStyle">
         </LinearLayout>
+        <ImageButton
+            android:id="@+id/suggestions_strip_mic_key"
+            android:layout_width="@dimen/config_suggestions_strip_edge_key_width"
+            android:layout_height="@dimen/config_suggestions_strip_edge_key_width"
+            android:layout_gravity="center_vertical"
+            android:layout_weight="0"
+            android:layout_marginEnd="1dp"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:background="@drawable/toolbar_expand_key_background"
+            style="?attr/suggestionWordStyle"
+            android:contentDescription="@string/spoken_description_mic" />
     </LinearLayout>
 </merge>

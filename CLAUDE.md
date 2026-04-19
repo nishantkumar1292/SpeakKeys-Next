@@ -18,6 +18,16 @@ The original SpeakKeys repo lives at `/Users/nishantkumar/Documents/personal/Spe
 
 ## Build Commands
 
+There is no system JDK on this machine — `./gradlew` run from a fresh shell
+fails with "Unable to locate a Java Runtime". Export `JAVA_HOME` to the JDK
+bundled with Android Studio before any gradle invocation:
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+```
+
+Then:
+
 ```bash
 # Build debug APK (minified, smaller)
 ./gradlew assembleDebug
@@ -27,6 +37,9 @@ The original SpeakKeys repo lives at `/Users/nishantkumar/Documents/personal/Spe
 
 # Build release APK
 ./gradlew assembleRelease
+
+# Fast type-check while iterating (skips packaging)
+./gradlew :app:compileDebugNoMinifyKotlin
 ```
 
 ## HeliBoard Architecture (What You're Working With)
