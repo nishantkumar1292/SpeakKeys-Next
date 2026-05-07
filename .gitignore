@@ -18,3 +18,6 @@ tools/*.txt
 
 # Firebase config (contains API key and OAuth client IDs) — must be supplied locally
 app/google-services.json
+
+# files required for play store submission
+play-store-assets/

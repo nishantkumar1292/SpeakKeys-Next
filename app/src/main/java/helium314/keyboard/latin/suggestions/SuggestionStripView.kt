@@ -179,10 +179,29 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         // V6 mic button
         micButton.layoutParams.height = toolbarHeight
         micButton.layoutParams.width = toolbarHeight
-        micButton.setImageDrawable(KeyboardIconsSet.instance.getNewDrawable(ToolbarKey.VOICE.name, context))
+        val micDrawable = KeyboardIconsSet.instance.getNewDrawable(ToolbarKey.VOICE.name, context)
+            ?: androidx.core.content.ContextCompat.getDrawable(context, R.drawable.sym_keyboard_voice_lxx)?.mutate()
+        micButton.setImageDrawable(micDrawable)
         colors.setBackground(micButton, ColorType.STRIP_BACKGROUND)
-        colors.setColor(micButton, ColorType.TOOL_BAR_KEY)
-        micButton.setOnClickListener { onMicTap() }
+        if (micButton.drawable != null) colors.setColor(micButton, ColorType.TOOL_BAR_KEY)
+        micButton.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    onMicPressStart()
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    onMicPressEnd(commit = true)
+                    v.performClick()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    onMicPressEnd(commit = true)
+                    true
+                }
+                else -> false
+            }
+        }
 
         // V6 waveform
         waveformView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
@@ -616,27 +635,35 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         manager?.setStateListener(voiceStateListener)
     }
 
+    // Toggle entry point for the keyboard's VOICE_INPUT key (press-release-press flow).
     fun onMicTap() {
-        val vim = voiceInputManager ?: return
-        AudioAndHapticFeedbackManager.getInstance()
-            .performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS)
         when (barState) {
-            V6BarState.IDLE -> {
-                vim.startListening()
-                if (vim.isListening) {
-                    setBarState(V6BarState.LISTENING, haptic = false) // haptic already played above
-                }
-                // else: VoiceInputManager fired onVoiceError → stay in IDLE
-            }
-            V6BarState.LISTENING -> {
-                vim.stopListening(commit = true)
-                setBarState(V6BarState.IDLE, haptic = false)
-            }
+            V6BarState.IDLE -> onMicPressStart()
+            V6BarState.LISTENING -> onMicPressEnd(commit = true)
             V6BarState.TRANSCRIBED, V6BarState.CORRECTING -> {
                 // TODO(v6): proper handling — for now, fall back to idle silently
                 setBarState(V6BarState.IDLE, haptic = false)
             }
         }
+    }
+
+    private fun onMicPressStart() {
+        val vim = voiceInputManager ?: return
+        if (barState != V6BarState.IDLE) return
+        AudioAndHapticFeedbackManager.getInstance()
+            .performHapticAndAudioFeedback(KeyCode.NOT_SPECIFIED, this, HapticEvent.KEY_PRESS)
+        vim.startListening()
+        if (vim.isListening) {
+            setBarState(V6BarState.LISTENING, haptic = false) // haptic already played above
+        }
+        // else: VoiceInputManager fired onVoiceError → stay in IDLE
+    }
+
+    private fun onMicPressEnd(commit: Boolean) {
+        val vim = voiceInputManager ?: return
+        if (barState != V6BarState.LISTENING) return
+        vim.stopListening(commit = commit)
+        setBarState(V6BarState.IDLE, haptic = false)
     }
 
     private fun cancelListening() {
