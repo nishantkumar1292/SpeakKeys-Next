@@ -15,8 +15,8 @@ android {
         applicationId = "com.speakkeys.keyboard"
         minSdk = 24
         targetSdk = 35
-        versionCode = 100
-        versionName = "v0.1.0"
+        versionCode = 101
+        versionName = "v0.1.1"
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))

@@ -1,0 +1,1 @@
+Fix voice recording so a tap starts listening until the next tap, and show transcript processing feedback while waiting for the backend.
