@@ -1097,7 +1097,7 @@ New dictionary:
     <string name="mic_info_hold_to_talk">Hold to talk</string>
     <string name="mic_info_release_to_send">Release to send</string>
     <string name="mic_info_release_soon">Release soon (max 30s)</string>
-    <string name="mic_info_processing">Processing…</string>
+    <string name="mic_info_processing">Transcribing...</string>
     <string name="mic_error_no_recognizers">No recognizers configured yet.\nTap Settings and add one or more API keys (OpenAI or Sarvam).</string>
     <string name="mic_error_no_permission">Microphone permission not granted!</string>
     <string name="mic_error_recognizer_error">Recognizer error</string>

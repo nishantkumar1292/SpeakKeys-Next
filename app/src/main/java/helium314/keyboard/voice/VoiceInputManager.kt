@@ -27,6 +27,7 @@ class VoiceInputManager(
 
     interface StateListener {
         fun onVoiceIdle()
+        fun onVoiceProcessing()
         fun onVoiceError(message: String)
     }
 
@@ -53,9 +54,9 @@ class VoiceInputManager(
     private val uiHandler = Handler(Looper.getMainLooper())
     private val holdAutoStopRunnable = Runnable {
         if (listening && modelManager.isRunning) {
-            // Auto-stop on hold timeout: commit and notify bar to return to idle.
+            // Auto-stop on hold timeout: commit. stopListening fires onVoiceProcessing;
+            // onFinalResult fires onVoiceIdle once the backend returns.
             stopListening(commit = true)
-            stateListener?.onVoiceIdle()
         }
     }
 
@@ -133,9 +134,12 @@ class VoiceInputManager(
         if (modelManager.isRunning) {
             processing = true
             modelManager.stop()
+            // Only show processing UI when we plan to commit; cancelled stops should look idle.
+            if (commit) stateListener?.onVoiceProcessing()
         } else {
             processing = false
             deferredResults.clear()
+            stateListener?.onVoiceIdle()
         }
     }
 
@@ -164,6 +168,7 @@ class VoiceInputManager(
         if (shouldCommit && finalText.isNotEmpty()) {
             commitVoiceText(finalText)
         }
+        stateListener?.onVoiceIdle()
     }
 
     override fun onPartialResult(partialText: String?) {

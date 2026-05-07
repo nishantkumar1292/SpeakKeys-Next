@@ -28,10 +28,40 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text as ComposeText
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.isVisible
 import helium314.keyboard.compat.isDeviceLocked
 import helium314.keyboard.event.HapticEvent
@@ -47,6 +77,7 @@ import helium314.keyboard.latin.common.ColorType
 import helium314.keyboard.latin.common.Colors
 import helium314.keyboard.latin.common.Constants
 import helium314.keyboard.onboarding.SpeakKeysColors
+import helium314.keyboard.onboarding.SpeakKeysType
 import helium314.keyboard.onboarding.WaveformBars
 import helium314.keyboard.voice.VoiceInputManager
 import helium314.keyboard.latin.define.DebugFlags
@@ -90,7 +121,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         fun onSwipeDownOnToolbar()
     }
 
-    enum class V6BarState { IDLE, LISTENING, TRANSCRIBED, CORRECTING }
+    enum class V6BarState { IDLE, LISTENING, PROCESSING, TRANSCRIBED, CORRECTING }
 
     private val moreSuggestionsContainer: View
     private val wordViews = ArrayList<TextView>()
@@ -151,14 +182,22 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         setColor(0xFF90CAF9.toInt()) // SpeakKeysColors.BrandGlow
     }
     private val waveformAnimating = mutableStateOf(false)
+    private val voiceProcessing = mutableStateOf(false)
     private var voiceInputManager: VoiceInputManager? = null
     private var barState: V6BarState = V6BarState.IDLE
     private val voiceStateListener = object : VoiceInputManager.StateListener {
         override fun onVoiceIdle() {
-            if (barState == V6BarState.LISTENING) setBarState(V6BarState.IDLE, haptic = false)
+            if (barState == V6BarState.LISTENING || barState == V6BarState.PROCESSING) {
+                setBarState(V6BarState.IDLE, haptic = false)
+            }
+        }
+        override fun onVoiceProcessing() {
+            if (barState == V6BarState.LISTENING) setBarState(V6BarState.PROCESSING, haptic = false)
         }
         override fun onVoiceError(message: String) {
-            if (barState == V6BarState.LISTENING) setBarState(V6BarState.IDLE, haptic = false)
+            if (barState == V6BarState.LISTENING || barState == V6BarState.PROCESSING) {
+                setBarState(V6BarState.IDLE, haptic = false)
+            }
             KeyboardSwitcher.getInstance().showToast(message, false)
         }
     }
@@ -184,33 +223,20 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         micButton.setImageDrawable(micDrawable)
         colors.setBackground(micButton, ColorType.STRIP_BACKGROUND)
         if (micButton.drawable != null) colors.setColor(micButton, ColorType.TOOL_BAR_KEY)
-        micButton.setOnTouchListener { v, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    onMicPressStart()
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    onMicPressEnd(commit = true)
-                    v.performClick()
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    onMicPressEnd(commit = true)
-                    true
-                }
-                else -> false
-            }
-        }
+        micButton.setOnClickListener { onMicTap() }
 
-        // V6 waveform
+        // V6 waveform / processing indicator
         waveformView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         waveformView.setContent {
-            WaveformBars(
-                animate = waveformAnimating.value,
-                barColor = ComposeColor.White,
-                glowColor = SpeakKeysColors.BrandGlow,
-            )
+            if (voiceProcessing.value) {
+                TranscribingIndicator(label = resources.getString(R.string.mic_info_processing))
+            } else {
+                WaveformBars(
+                    animate = waveformAnimating.value,
+                    barColor = ComposeColor.White,
+                    glowColor = SpeakKeysColors.BrandGlow,
+                )
+            }
         }
 
         // background indicator for pinned keys
@@ -640,6 +666,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         when (barState) {
             V6BarState.IDLE -> onMicPressStart()
             V6BarState.LISTENING -> onMicPressEnd(commit = true)
+            V6BarState.PROCESSING -> Unit // wait for backend; ignore taps
             V6BarState.TRANSCRIBED, V6BarState.CORRECTING -> {
                 // TODO(v6): proper handling — for now, fall back to idle silently
                 setBarState(V6BarState.IDLE, haptic = false)
@@ -663,7 +690,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         val vim = voiceInputManager ?: return
         if (barState != V6BarState.LISTENING) return
         vim.stopListening(commit = commit)
-        setBarState(V6BarState.IDLE, haptic = false)
+        // For commit=true, VoiceInputManager fires onVoiceProcessing → setBarState(PROCESSING),
+        // and onFinalResult → onVoiceIdle returns us to IDLE.
+        // For commit=false (cancel), no callback fires; drop straight to IDLE.
+        if (!commit) setBarState(V6BarState.IDLE, haptic = false)
     }
 
     private fun cancelListening() {
@@ -681,7 +711,9 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         }
         when (state) {
             V6BarState.LISTENING -> {
+                voiceProcessing.value = false
                 waveformAnimating.value = true
+                micButton.isVisible = true
                 waveformView.alpha = 0f
                 waveformView.isVisible = true
                 suggestionsStrip.animate()
@@ -697,15 +729,29 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
                 micButton.background = listeningMicBackground
                 micButton.imageTintList = ColorStateList.valueOf(Color.WHITE)
             }
+            V6BarState.PROCESSING -> {
+                // Swap waveform content to the "Transcribing…" indicator while keeping
+                // the same ComposeView visible — avoids a fade-out/in flash on release.
+                voiceProcessing.value = true
+                waveformAnimating.value = false
+                waveformView.isVisible = true
+                waveformView.alpha = 1f
+                // The spinner inside the strip owns the right edge while the backend responds.
+                micButton.isVisible = false
+                micButton.background = defaultMicBackground.constantState?.newDrawable(resources) ?: defaultMicBackground
+                Settings.getValues().mColors.setColor(micButton, ColorType.TOOL_BAR_KEY)
+            }
             V6BarState.IDLE -> {
                 suggestionsStrip.alpha = 0f
                 suggestionsStrip.isVisible = true
+                micButton.isVisible = true
                 waveformView.animate()
                     .alpha(0f)
                     .setDuration(FADE_DURATION_MS)
                     .withEndAction {
                         waveformView.isVisible = false
                         waveformAnimating.value = false
+                        voiceProcessing.value = false
                     }
                     .start()
                 suggestionsStrip.animate()
@@ -728,5 +774,95 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         private const val DEBUG_INFO_TEXT_SIZE_IN_DIP = 6.5f
         private const val FADE_DURATION_MS = 140L
         private val TAG = SuggestionStripView::class.java.simpleName
+    }
+}
+
+@Composable
+private fun TranscribingIndicator(label: String, modifier: Modifier = Modifier) {
+    var elapsedSeconds by remember { mutableIntStateOf(0) }
+    LaunchedEffect(label) {
+        elapsedSeconds = 0
+        while (true) {
+            delay(1000)
+            elapsedSeconds++
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .background(SpeakKeysColors.BrandSoft.copy(alpha = 0.45f))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        ProcessingDots()
+        ComposeText(
+            text = "$label ${elapsedSeconds}s",
+            style = SpeakKeysType.StripStatus.copy(
+                color = SpeakKeysColors.BrandGlow,
+                fontSize = 13.sp,
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        ProcessingSpinner()
+    }
+}
+
+@Composable
+private fun ProcessingDots() {
+    val transition = rememberInfiniteTransition(label = "processingDots")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(1050, easing = LinearEasing)),
+        label = "processingDotsPhase",
+    )
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(3) { index ->
+            val active = phase >= index && phase < index + 1
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .background(
+                        SpeakKeysColors.BrandGlow.copy(alpha = if (active) 0.95f else 0.45f),
+                        CircleShape,
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProcessingSpinner() {
+    val transition = rememberInfiniteTransition(label = "processingSpinner")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        label = "processingSpinnerRotation",
+    )
+
+    Canvas(modifier = Modifier.size(28.dp)) {
+        val strokeWidth = 3.dp.toPx()
+        val inset = strokeWidth / 2f
+        val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
+        drawCircle(
+            color = SpeakKeysColors.BrandGlow.copy(alpha = 0.22f),
+            radius = size.minDimension / 2f - inset,
+            style = Stroke(width = strokeWidth),
+        )
+        drawArc(
+            color = SpeakKeysColors.BrandGlow,
+            startAngle = rotation - 90f,
+            sweepAngle = 88f,
+            useCenter = false,
+            topLeft = Offset(inset, inset),
+            size = arcSize,
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+        )
     }
 }
