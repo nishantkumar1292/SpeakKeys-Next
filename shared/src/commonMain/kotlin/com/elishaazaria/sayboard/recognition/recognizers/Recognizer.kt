@@ -6,6 +6,17 @@ interface Recognizer {
     fun getResult(): String
     fun getPartialResult(): String
     fun getFinalResult(): String
+
+    /**
+     * Abandons the current utterance without producing a final transcript.
+     *
+     * Batch recognizers historically had no distinct cancellation path. Their
+     * finalization is skipped and the next utterance starts with [reset], so the
+     * default is deliberately a no-op; this avoids racing a native recognizer's
+     * audio callback. Network and streaming implementations must override this
+     * to close the request before buffered audio is uploaded.
+     */
+    fun cancel() = Unit
     val sampleRate: Float
     val languageCode: String?
 

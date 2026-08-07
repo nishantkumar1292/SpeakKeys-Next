@@ -23,7 +23,7 @@ class ProxiedCloudProvider(
             Logger.d(TAG, "getInstalledModels: not signed in, skipping proxied models")
             return emptyList()
         }
-        Logger.d(TAG, "getInstalledModels: signed in as ${authTokenProvider.userEmail}, returning proxied models")
+        Logger.d(TAG, "getInstalledModels: signed in, returning proxied models")
 
         return listOf(
             InstalledModelReference(
@@ -44,7 +44,14 @@ class ProxiedCloudProvider(
         return when (localModel.type) {
             ModelType.ProxiedSarvamCloud -> {
                 val locale = SpeakKeysLocale("en", "IN")
-                val mode = normalizeSarvamMode(prefs.getSarvamMode())
+                // The plain-language picker is authoritative. Keeping this tied to the legacy
+                // Sarvam-only preference made a fresh `mixed` selection silently produce Roman
+                // Hindi through the proxied route.
+                val mode = if (prefs.getVoiceOutputStyle() == "latin") {
+                    "translit"
+                } else {
+                    "codemix"
+                }
                 val languageCode = prefs.getSarvamLanguage()
 
                 val params = mapOf(
@@ -59,9 +66,4 @@ class ProxiedCloudProvider(
         }
     }
 
-    private fun normalizeSarvamMode(mode: String): String = when (mode) {
-        "native" -> "transcribe"
-        "transcribe", "translit" -> mode
-        else -> "translit"
-    }
 }

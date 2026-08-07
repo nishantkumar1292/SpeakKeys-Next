@@ -18,6 +18,12 @@ interface PreferencesRepository {
     fun getSarvamMode(): String
     fun getSarvamLanguage(): String
 
+    // ElevenLabs realtime settings
+    fun getElevenLabsApiKey(): String
+
+    // Cross-provider output choice: `mixed` or `latin`
+    fun getVoiceOutputStyle(): String
+
     // Model ordering
     fun getModelsOrder(): List<InstalledModelReference>
     fun setModelsOrder(models: List<InstalledModelReference>)

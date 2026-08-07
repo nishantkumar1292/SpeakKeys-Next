@@ -26,3 +26,11 @@ interface RecognizerSource {
 
     val locale: SpeakKeysLocale
 }
+
+/**
+ * Opt-in marker for an initialization failure that may recover after authentication refresh.
+ * Generic model, configuration, and runtime errors must not trigger an automatic retry loop.
+ */
+interface RecoverableAuthFailureSource {
+    val hasRecoverableAuthFailure: Boolean
+}

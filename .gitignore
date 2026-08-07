@@ -15,6 +15,11 @@ tools/*.txt
 *.patch
 *.diff
 *.sh
+!mac/make_app.sh
+!mac/setup_signing.sh
+.venv/
+__pycache__/
+.pytest_cache/
 
 # Firebase config (contains API key and OAuth client IDs) — must be supplied locally
 app/google-services.json

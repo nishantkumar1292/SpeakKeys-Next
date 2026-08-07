@@ -6,6 +6,7 @@ import com.elishaazaria.sayboard.recognition.logging.Logger
 import com.elishaazaria.sayboard.recognition.recognizers.Recognizer
 import com.elishaazaria.sayboard.recognition.recognizers.RecognizerSource
 import com.elishaazaria.sayboard.recognition.recognizers.RecognizerState
+import com.elishaazaria.sayboard.recognition.recognizers.RecoverableAuthFailureSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,7 @@ class ProxiedCloud(
     private val displayLocale: SpeakKeysLocale,
     private val providerParams: Map<String, String> = emptyMap(),
     private val transliterateToRoman: Boolean = false
-) : RecognizerSource {
+) : RecognizerSource, RecoverableAuthFailureSource {
 
     companion object {
         private const val TAG = "ProxiedCloud"
@@ -30,6 +31,8 @@ class ProxiedCloud(
     override val stateFlow: StateFlow<RecognizerState> = _stateFlow.asStateFlow()
 
     private var myRecognizer: ProxiedCloudRecognizer? = null
+    override var hasRecoverableAuthFailure: Boolean = false
+        private set
 
     override val recognizer: Recognizer get() = myRecognizer!!
 
@@ -46,10 +49,12 @@ class ProxiedCloud(
 
         if (!authTokenProvider.isSignedIn) {
             Logger.e(TAG, "Not signed in!")
+            hasRecoverableAuthFailure = true
             _stateFlow.value = RecognizerState.ERROR
             return
         }
 
+        hasRecoverableAuthFailure = false
         myRecognizer = ProxiedCloudRecognizer(
             tokenProvider = { authTokenProvider.getIdToken() },
             provider = provider,
@@ -62,6 +67,7 @@ class ProxiedCloud(
 
     override fun close(freeRAM: Boolean) {
         if (freeRAM) {
+            myRecognizer?.close()
             myRecognizer = null
         }
     }

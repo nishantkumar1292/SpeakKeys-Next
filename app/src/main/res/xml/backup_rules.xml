@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<full-backup-content>
+    <!--
+      This file historically held plaintext service keys. Exclude the whole preference model so
+      neither current nor stale key material can enter cloud backup on any supported Android API.
+    -->
+    <exclude
+        domain="root"
+        path="jetpref_datastore/speakkeys-voice-preferences.jetpref" />
+    <exclude
+        domain="device_root"
+        path="jetpref_datastore/speakkeys-voice-preferences.jetpref" />
+</full-backup-content>

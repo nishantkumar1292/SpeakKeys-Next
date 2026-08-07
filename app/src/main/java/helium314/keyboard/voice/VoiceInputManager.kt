@@ -9,15 +9,20 @@ import android.view.inputmethod.EditorInfo
 import androidx.core.app.ActivityCompat
 import com.elishaazaria.sayboard.recognition.recognizers.RecognizerSource
 import com.elishaazaria.sayboard.recognition.recognizers.RecognizerState
+import com.elishaazaria.sayboard.recognition.recognizers.RecoverableAuthFailureSource
 import com.elishaazaria.sayboard.recognition.text.TextProcessor
+import com.elishaazaria.sayboard.utils.DevanagariTransliterator
+import helium314.keyboard.latin.InputAttributes
 import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.R
 import helium314.keyboard.voice.auth.AndroidAuthTokenProvider
+import helium314.keyboard.voice.credentials.VoiceCredentialVault
 import helium314.keyboard.voice.preferences.AndroidPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -29,6 +34,9 @@ class VoiceInputManager(
         fun onVoiceIdle()
         fun onVoiceProcessing()
         fun onVoiceError(message: String)
+
+        /** Latest provisional transcript. Each value replaces the previous one. */
+        fun onVoicePartial(text: String) {}
     }
 
     private val prefs by speakKeysPreferenceModel()
@@ -45,7 +53,10 @@ class VoiceInputManager(
     private var listening = false
     private var processing = false
     private var commitOnFinish = true
+    private var editorAllowsVoiceInput = false
     private val deferredResults = mutableListOf<String>()
+    private var lastPartialText = ""
+    private val latencyTracker = VoiceLatencyTracker()
 
     private var stateListener: StateListener? = null
 
@@ -72,9 +83,13 @@ class VoiceInputManager(
             latinIME,
             this,
             AndroidPreferencesRepository(),
-            AndroidAuthTokenProvider()
+            AndroidAuthTokenProvider(),
+            canPersistProviderCatalog = {
+                VoiceCredentialVault.get(latinIME).configuration().let { configuration ->
+                    configuration.storageAvailable && !configuration.storageError
+                }
+            },
         )
-        modelManager.initializeFirstLocale(false)
     }
 
     fun onWindowShown() {
@@ -82,19 +97,31 @@ class VoiceInputManager(
     }
 
     fun onWindowHidden() {
+        editorAllowsVoiceInput = false
+        abortListening()
         lifecycleOwner.onPause()
     }
 
-    fun onStartInputView(editorInfo: EditorInfo) {
-        lifecycleOwner.attachToDecorView(latinIME.window?.window?.decorView)
-        checkMicrophonePermission()
-        modelManager.reloadModels()
-        if (currentRecognizerSource == null) {
-            modelManager.initializeFirstLocale(false)
+    /** Lightweight policy update used even when no keyboard view exists (for example rotation). */
+    fun onEditorVoiceEligibilityChanged(allowed: Boolean) {
+        editorAllowsVoiceInput = allowed
+        if (!allowed && (listening || processing || modelManager.isRunning)) {
+            abortListening()
         }
     }
 
+    fun onStartInputView(editorInfo: EditorInfo) {
+        onEditorVoiceEligibilityChanged(isEditorSafeForVoice(editorInfo))
+        lifecycleOwner.attachToDecorView(latinIME.window?.window?.decorView)
+        checkMicrophonePermission()
+        modelManager.reloadModels()
+        // reloadModels rebuilds sources so key, output-style, and download changes
+        // take effect even when the stable model ID did not change.
+        modelManager.initializeFirstLocale(false)
+    }
+
     fun onFinishInputView() {
+        editorAllowsVoiceInput = false
         abortListening()
     }
 
@@ -104,10 +131,19 @@ class VoiceInputManager(
         authRetryJob?.cancel()
         lifecycleOwner.onDestroy()
         modelManager.onDestroy()
+        scope.cancel()
+    }
+
+    /** Releases large native local models when Android reports memory pressure between utterances. */
+    fun onTrimMemory() {
+        if (!listening && !processing) modelManager.cancel(forceFreeRam = true)
     }
 
     fun startListening() {
         if (processing || listening) return
+        val currentEditor = latinIME.currentInputEditorInfo ?: return
+        editorAllowsVoiceInput = isEditorSafeForVoice(currentEditor)
+        if (!editorAllowsVoiceInput) return
         if (!hasMicPermission) {
             latinIME.startActivity(PermissionRequestActivity.createIntent(latinIME))
             stateListener?.onVoiceError(latinIME.getString(R.string.mic_error_no_permission))
@@ -118,8 +154,11 @@ class VoiceInputManager(
             return
         }
         listening = true
+        processing = false
         commitOnFinish = true
         deferredResults.clear()
+        clearPartialResult()
+        latencyTracker.onMicStarted()
         if (!modelManager.isRunning) {
             modelManager.start()
         }
@@ -131,27 +170,46 @@ class VoiceInputManager(
         listening = false
         commitOnFinish = commit
         cancelHoldTimers()
-        if (modelManager.isRunning) {
+        clearPartialResult()
+        if (!commit) {
+            latencyTracker.onCancelled()
+            modelManager.cancel()
+            processing = false
+            deferredResults.clear()
+            stateListener?.onVoiceIdle()
+        } else if (modelManager.isRunning) {
+            latencyTracker.onReleased()
             processing = true
             modelManager.stop()
-            // Only show processing UI when we plan to commit; cancelled stops should look idle.
-            if (commit) stateListener?.onVoiceProcessing()
+            // An OEM SpeechRecognizer may synchronously deliver its final result from stop().
+            // onFinalResult clears processing and publishes idle, which must not be overwritten.
+            if (processing) stateListener?.onVoiceProcessing()
         } else {
+            // A heavyweight local model may still be prewarming, or a replacement AudioRecord may
+            // be waiting for cleanup. Releasing before capture starts cancels that deferred start.
+            modelManager.cancel()
+            latencyTracker.onCancelled()
             processing = false
             deferredResults.clear()
             stateListener?.onVoiceIdle()
         }
     }
 
+    /** Cancels recording or pending recognition and guarantees that no result will be committed. */
+    fun cancelListening() {
+        abortListening()
+    }
+
     private fun abortListening() {
         listening = false
         commitOnFinish = false
         cancelHoldTimers()
-        if (modelManager.isRunning) {
-            modelManager.stop()
-        }
+        clearPartialResult()
+        latencyTracker.onCancelled()
+        modelManager.cancel()
         processing = false
         deferredResults.clear()
+        stateListener?.onVoiceIdle()
     }
 
     override fun onResult(text: String?) {
@@ -163,24 +221,39 @@ class VoiceInputManager(
 
     override fun onFinalResult(text: String?) {
         val shouldCommit = commitOnFinish
+        listening = false
         processing = false
-        val finalText = mergeDeferredResults(text)
-        if (shouldCommit && finalText.isNotEmpty()) {
+        cancelHoldTimers()
+        clearPartialResult()
+        val finalText = applyOutputStyle(mergeDeferredResults(text))
+        latencyTracker.onFinal()?.let { sample ->
+            Log.d(
+                TAG,
+                "Voice latency #${sample.utteranceId}: " +
+                    "micToPartial=${sample.micToFirstPartialMs ?: -1}ms, " +
+                    "releaseToFinal=${sample.releaseToFinalMs ?: -1}ms, total=${sample.totalMs}ms",
+            )
+        }
+        if (shouldCommit && editorAllowsVoiceInput && isCurrentEditorSafeForVoice()
+            && finalText.isNotEmpty()
+        ) {
             commitVoiceText(finalText)
         }
         stateListener?.onVoiceIdle()
     }
 
     override fun onPartialResult(partialText: String?) {
-        // Push-to-talk hides partials while holding.
+        if (!listening) return
+        val replacement = applyOutputStyle(partialText?.trim().orEmpty())
+        if (replacement == lastPartialText) return
+        if (replacement.isNotEmpty()) latencyTracker.onFirstPartial()
+        lastPartialText = replacement
+        stateListener?.onVoicePartial(replacement)
     }
 
     override fun onStateChanged(state: ModelManager.State) {
         if (state != ModelManager.State.STATE_LISTENING) {
             cancelHoldTimers()
-        }
-        if (state == ModelManager.State.STATE_STOPPED) {
-            stateFlowJob?.cancel()
         }
     }
 
@@ -203,8 +276,17 @@ class VoiceInputManager(
         stateFlowJob = scope.launch {
             source.stateFlow.collect { state ->
                 if (state == RecognizerState.ERROR) {
-                    stateListener?.onVoiceError(source.errorMessage)
-                    scheduleAuthRetry()
+                    // A start-in-progress gets its terminal callback from ModelManager, which also
+                    // returns the UI to idle. Prewarm failures still need a visible explanation.
+                    if (!listening && !processing) {
+                        stateListener?.onVoiceError(source.errorMessage)
+                    }
+                    if (shouldRetryRecognizerInitialization(source)) {
+                        scheduleAuthRetry(source)
+                    } else {
+                        authRetryJob?.cancel()
+                        authRetryJob = null
+                    }
                 }
             }
         }
@@ -217,7 +299,10 @@ class VoiceInputManager(
     private fun failToIdle(message: String?) {
         listening = false
         processing = false
+        commitOnFinish = false
+        latencyTracker.onCancelled()
         deferredResults.clear()
+        clearPartialResult()
         cancelHoldTimers()
         if (message != null) stateListener?.onVoiceError(message)
         stateListener?.onVoiceIdle()
@@ -245,11 +330,22 @@ class VoiceInputManager(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun scheduleAuthRetry() {
+    private fun isCurrentEditorSafeForVoice(): Boolean =
+        latinIME.currentInputEditorInfo?.let(::isEditorSafeForVoice) == true
+
+    private fun isEditorSafeForVoice(editorInfo: EditorInfo): Boolean =
+        InputAttributes.shouldAllowSpeakKeysVoiceInput(editorInfo, latinIME.packageName)
+
+    private fun scheduleAuthRetry(source: RecognizerSource) {
         authRetryJob?.cancel()
         authRetryJob = scope.launch {
             delay(5000)
-            if (!listening && !processing) {
+            if (
+                currentRecognizerSource === source &&
+                shouldRetryRecognizerInitialization(source) &&
+                !listening &&
+                !processing
+            ) {
                 Log.d(TAG, "Auto-retrying initialization after auth error")
                 modelManager.initializeFirstLocale(false)
             }
@@ -263,6 +359,12 @@ class VoiceInputManager(
 
     private fun cancelHoldTimers() {
         uiHandler.removeCallbacks(holdAutoStopRunnable)
+    }
+
+    private fun clearPartialResult() {
+        if (lastPartialText.isEmpty()) return
+        lastPartialText = ""
+        stateListener?.onVoicePartial("")
     }
 
     private fun mergeDeferredResults(finalText: String?): String {
@@ -280,8 +382,19 @@ class VoiceInputManager(
         }
     }
 
+    private fun applyOutputStyle(text: String): String =
+        if (text.isNotEmpty() && prefs.voiceOutputStyle.get() == OUTPUT_STYLE_LATIN) {
+            DevanagariTransliterator.transliterate(text)
+        } else {
+            text
+        }
+
     companion object {
         private const val TAG = "VoiceInputManager"
         private const val HOLD_AUTO_STOP_MS = 30_000L
+        private const val OUTPUT_STYLE_LATIN = "latin"
     }
 }
+
+internal fun shouldRetryRecognizerInitialization(source: RecognizerSource): Boolean =
+    source is RecoverableAuthFailureSource && source.hasRecoverableAuthFailure

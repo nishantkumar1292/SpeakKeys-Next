@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Build
 import android.os.Bundle
+import androidx.work.Configuration
 import com.google.firebase.FirebaseApp
 import dev.patrickgold.jetpref.datastore.JetPref
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
@@ -15,13 +16,18 @@ import helium314.keyboard.latin.utils.LayoutUtilsCustom
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.SubtypeSettings
 import helium314.keyboard.voice.AppCtx
+import helium314.keyboard.voice.migrateModelOrderPreferences
 import helium314.keyboard.voice.speakKeysPreferenceModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class App : Application() {
+class App : Application(), Configuration.Provider {
     private val voicePrefs by speakKeysPreferenceModel()
+
+    override val workManagerConfiguration: Configuration by lazy {
+        Configuration.Builder().build()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -39,6 +45,7 @@ class App : Application() {
             encodeDefaultValues = true,
         )
         voicePrefs.initializeBlocking(this)
+        voicePrefs.migrateModelOrderPreferences()
         AppCtx.setAppCtx(this)
         FirebaseApp.initializeApp(this)
         DebugFlags.init(this)

@@ -183,8 +183,12 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     }
     private val waveformAnimating = mutableStateOf(false)
     private val voiceProcessing = mutableStateOf(false)
+    private val voicePartialText = mutableStateOf("")
     private var voiceInputManager: VoiceInputManager? = null
     private var barState: V6BarState = V6BarState.IDLE
+    // Fail closed until LatinIME supplies the current editor policy. This is intentionally
+    // independent from HeliBoard's external voice-IME shortcut readiness.
+    private var speakKeysVoiceAllowedForEditor = false
     private val voiceStateListener = object : VoiceInputManager.StateListener {
         override fun onVoiceIdle() {
             if (barState == V6BarState.LISTENING || barState == V6BarState.PROCESSING) {
@@ -199,6 +203,9 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
                 setBarState(V6BarState.IDLE, haptic = false)
             }
             KeyboardSwitcher.getInstance().showToast(message, false)
+        }
+        override fun onVoicePartial(text: String) {
+            voicePartialText.value = text
         }
     }
 
@@ -231,10 +238,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
             if (voiceProcessing.value) {
                 TranscribingIndicator(label = resources.getString(R.string.mic_info_processing))
             } else {
-                WaveformBars(
+                ListeningIndicator(
                     animate = waveformAnimating.value,
-                    barColor = ComposeColor.White,
-                    glowColor = SpeakKeysColors.BrandGlow,
+                    provisionalText = voicePartialText.value,
+                    listeningLabel = resources.getString(R.string.mic_info_listening),
                 )
             }
         }
@@ -605,9 +612,20 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     }
 
     fun updateVoiceKey() {
-        val show = Settings.getValues().mShowsVoiceInputKey
-        toolbar.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = show
-        pinnedKeys.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = show
+        val showExternalVoiceShortcut = Settings.getValues().mShowsVoiceInputKey
+        toolbar.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = showExternalVoiceShortcut
+        pinnedKeys.findViewWithTag<View>(ToolbarKey.VOICE)?.isVisible = showExternalVoiceShortcut
+        if (!speakKeysVoiceAllowedForEditor && barState != V6BarState.IDLE) {
+            cancelListening()
+        }
+        micButton.isVisible = speakKeysVoiceAllowedForEditor && barState != V6BarState.PROCESSING
+        if (!speakKeysVoiceAllowedForEditor) waveformView.isVisible = false
+    }
+
+    /** Applies the current editor's policy to SpeakKeys' dedicated microphone. */
+    fun updateSpeakKeysVoiceEligibility(allowed: Boolean) {
+        speakKeysVoiceAllowedForEditor = allowed
+        updateVoiceKey()
     }
 
     private fun updateKeys() {
@@ -663,6 +681,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
 
     // Toggle entry point for the keyboard's VOICE_INPUT key (press-release-press flow).
     fun onMicTap() {
+        if (!speakKeysVoiceAllowedForEditor) return
         when (barState) {
             V6BarState.IDLE -> onMicPressStart()
             V6BarState.LISTENING -> onMicPressEnd(commit = true)
@@ -697,8 +716,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
     }
 
     private fun cancelListening() {
-        val vim = voiceInputManager ?: return
-        vim.stopListening(commit = false)
+        voiceInputManager?.cancelListening()
         setBarState(V6BarState.IDLE, haptic = false)
     }
 
@@ -712,6 +730,7 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         when (state) {
             V6BarState.LISTENING -> {
                 voiceProcessing.value = false
+                voicePartialText.value = ""
                 waveformAnimating.value = true
                 micButton.isVisible = true
                 waveformView.alpha = 0f
@@ -742,9 +761,10 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
                 Settings.getValues().mColors.setColor(micButton, ColorType.TOOL_BAR_KEY)
             }
             V6BarState.IDLE -> {
+                voicePartialText.value = ""
                 suggestionsStrip.alpha = 0f
                 suggestionsStrip.isVisible = true
-                micButton.isVisible = true
+                micButton.isVisible = speakKeysVoiceAllowedForEditor
                 waveformView.animate()
                     .alpha(0f)
                     .setDuration(FADE_DURATION_MS)
@@ -774,6 +794,42 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         private const val DEBUG_INFO_TEXT_SIZE_IN_DIP = 6.5f
         private const val FADE_DURATION_MS = 140L
         private val TAG = SuggestionStripView::class.java.simpleName
+    }
+}
+
+@Composable
+private fun ListeningIndicator(
+    animate: Boolean,
+    provisionalText: String,
+    listeningLabel: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SpeakKeysColors.BrandSoft.copy(alpha = 0.28f))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        WaveformBars(
+            animate = animate,
+            barColor = ComposeColor.White,
+            glowColor = SpeakKeysColors.BrandGlow,
+        )
+        ComposeText(
+            text = provisionalText.ifBlank { listeningLabel },
+            style = SpeakKeysType.StripStatus.copy(
+                color = if (provisionalText.isBlank()) {
+                    ComposeColor.White.copy(alpha = 0.72f)
+                } else {
+                    ComposeColor.White
+                },
+                fontSize = 13.sp,
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

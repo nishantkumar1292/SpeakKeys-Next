@@ -416,8 +416,13 @@ private fun formatModelName(model: InstalledModelReference): String {
     val engineLabel = when (model.type) {
         ModelType.WhisperCloud -> stringResource(R.string.voice_settings_model_type_whisper)
         ModelType.SarvamCloud -> stringResource(R.string.voice_settings_model_type_sarvam)
+        ModelType.ElevenLabsCloud -> stringResource(R.string.voice_settings_model_type_elevenlabs)
         ModelType.ProxiedWhisperCloud,
         ModelType.ProxiedSarvamCloud -> stringResource(R.string.voice_settings_model_type_proxied)
+        ModelType.AndroidOnDevice -> stringResource(R.string.voice_settings_model_type_phone_offline)
+        ModelType.VoskLocal -> stringResource(R.string.voice_settings_model_type_vosk_local)
+        ModelType.VoskHindiLocal -> stringResource(R.string.voice_settings_model_type_vosk_hindi)
+        ModelType.VoskEnglishIndiaLocal -> stringResource(R.string.voice_settings_model_type_vosk_english)
     }
     return "$engineLabel · ${model.name}"
 }

@@ -218,6 +218,33 @@ public final class InputLogic {
     }
 
     /**
+     * Finishes HeliBoard-owned composition before text is committed by an external input engine.
+     *
+     * Voice recognition writes through {@link RichInputConnection} directly, so merely removing
+     * the editor's composing span is not enough: the next physical key would otherwise continue
+     * the stale {@link WordComposer} word and replace or duplicate text around the voice result.
+     * This establishes the same clean boundary as starting a fresh word, while keeping the current
+     * editor connection active.
+     */
+    public void prepareForExternalTextCommit() {
+        if (mWordComposer.isComposingWord()) {
+            StatsUtils.onWordCommitUserTyped(mWordComposer.getTypedWord(), mWordComposer.isBatchMode());
+        }
+        mConnection.finishComposingText();
+        resetComposingState(true /* alsoResetLastComposedWord */);
+        mInputLogicHandler.reset();
+        mSuggestedWords = SuggestedWords.getEmptyInstance();
+        mSpaceState = SpaceState.NONE;
+        mEnteredText = null;
+        mWordBeingCorrectedByCursor = null;
+        mIsAutoCorrectionIndicatorOn = false;
+        mJustRevertedACommit = false;
+        mRecapitalizeStatus.disable();
+        cancelDoubleSpacePeriodCountdown();
+        setInlineEmojiSearchAction(false);
+    }
+
+    /**
      * React to a string input.
      * <p>
      * This is triggered by keys that input many characters at once, like the ".com" key or

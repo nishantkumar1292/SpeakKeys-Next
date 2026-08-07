@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>SpeakKeys</string>
+    <key>CFBundleDisplayName</key>
+    <string>SpeakKeys</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.speakkeys.mac</string>
+    <key>CFBundleExecutable</key>
+    <string>SpeakKeysMac</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <!-- Menu-bar agent: no Dock icon, no main window. -->
+    <key>LSUIElement</key>
+    <true/>
+    <!-- TCC usage strings (shown when macOS prompts for permission). -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>SpeakKeys records your microphone while you hold the dictation key so it can transcribe what you say.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>SpeakKeys uses speech recognition to turn your dictated audio into text.</string>
+</dict>
+</plist>
