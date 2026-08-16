@@ -1,7 +1,7 @@
-# Google Play release automation
+# Google Play closed-testing release automation
 
-SpeakKeys releases an Android App Bundle after a pull request that changes the
-Android production build is merged into `main`. The workflow is
+SpeakKeys releases an Android App Bundle to Google Play's initial closed-testing
+track after a pull request that changes the Android release build is merged into `main`. The workflow is
 `.github/workflows/release-play.yml`.
 
 The workflow will remain safely disabled until the configuration below exists.
@@ -11,8 +11,8 @@ or Actions log.
 > [!IMPORTANT]
 > This automation change also updates `app/build.gradle.kts`, so the pull request
 > that introduces it may itself qualify as an Android release. Configure the
-> environment with `PLAY_TRACK=internal` before merging, or expect that first
-> run to fail safely at its missing-configuration check and rerun it after setup.
+> protected closed-testing environment before merging, or expect that first run
+> to fail safely at its missing-configuration check and rerun it after setup.
 
 ## Security model
 
@@ -23,7 +23,8 @@ The workflow separates building from publishing:
    the Firebase Android configuration needed by the release build.
 2. The publish job does not check out or execute repository code. It signs the
    downloaded AAB with the Play **upload key**, obtains a short-lived Google
-   credential through Workload Identity Federation, and uploads the bundle.
+   credential through Workload Identity Federation, and uploads the bundle to
+   the initial closed-testing track (`alpha` in the Developer API).
 
 The app-signing key managed by Google Play must never be stored in GitHub. Only
 use the separate, revocable upload key registered in Play App Signing.
@@ -44,7 +45,7 @@ key, passwords, and Google publisher credential never enter that artifact.
 ## 1. Create the protected GitHub environment
 
 In **Repository settings > Environments**, create an environment named
-`google-play-production` and restrict its deployment branches to `main`.
+`google-play-closed-testing` and restrict its deployment branches to `main`.
 
 Also protect `main` and require Code Owner approval. The checked-in
 `.github/CODEOWNERS` assigns the release workflow, release build configuration,
@@ -53,7 +54,7 @@ the branch rule enables required Code Owner reviews.
 
 A required reviewer provides the strongest protection for the signing key, but
 it also changes releases from fully automatic to approval-based. Leave the
-reviewer rule disabled only if fully automatic production releases are desired.
+reviewer rule disabled only if fully automatic closed-testing releases are desired.
 
 Set these environment variables; they are identifiers, not secrets:
 
@@ -61,14 +62,12 @@ Set these environment variables; they are identifiers, not secrets:
 | --- | --- |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name, such as `projects/123456789/locations/global/workloadIdentityPools/github/providers/speakkeys` |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT` | Service account email used for Play publishing |
-| `PLAY_TRACK` | Required: `internal` for the initial smoke test, then `production` for automatic public releases. |
 
 They can be configured without exposing credential material:
 
 ```bash
-gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --env google-play-production
-gh variable set GOOGLE_PLAY_SERVICE_ACCOUNT --env google-play-production
-gh variable set PLAY_TRACK --env google-play-production --body internal
+gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --env google-play-closed-testing
+gh variable set GOOGLE_PLAY_SERVICE_ACCOUNT --env google-play-closed-testing
 ```
 
 The first two commands prompt for their values. They are resource identifiers
@@ -98,11 +97,11 @@ base64 < app/google-services.json |
   gh secret set SPEAKKEYS_GOOGLE_SERVICES_JSON_BASE64
 
 base64 < /absolute/path/to/speakkeys-upload.jks |
-  gh secret set SPEAKKEYS_UPLOAD_KEYSTORE_BASE64 --env google-play-production
+  gh secret set SPEAKKEYS_UPLOAD_KEYSTORE_BASE64 --env google-play-closed-testing
 
-gh secret set SPEAKKEYS_STORE_PASSWORD --env google-play-production
-gh secret set SPEAKKEYS_KEY_ALIAS --env google-play-production
-gh secret set SPEAKKEYS_KEY_PASSWORD --env google-play-production
+gh secret set SPEAKKEYS_STORE_PASSWORD --env google-play-closed-testing
+gh secret set SPEAKKEYS_KEY_ALIAS --env google-play-closed-testing
+gh secret set SPEAKKEYS_KEY_PASSWORD --env google-play-closed-testing
 ```
 
 The last three commands prompt for their values without placing them on the
@@ -152,7 +151,7 @@ Then use this attribute condition (line breaks are for readability):
 attribute.repository_id == '1206260724' &&
 attribute.repository_owner_id == '26112797' &&
 attribute.ref == 'refs/heads/main' &&
-attribute.environment == 'google-play-production' &&
+attribute.environment == 'google-play-closed-testing' &&
 (attribute.event_name == 'pull_request_target' || attribute.event_name == 'workflow_dispatch') &&
 attribute.workflow_ref == 'nishantkumar1292/SpeakKeys-Next/.github/workflows/release-play.yml@refs/heads/main' &&
 attribute.runner_environment == 'github-hosted'
@@ -160,7 +159,7 @@ attribute.runner_environment == 'github-hosted'
 
 Repository and owner IDs are immutable and prevent a renamed or similarly
 named repository from satisfying the policy. The environment and workflow
-claims keep the credential scoped to this production publish job.
+claims keep the credential scoped to this closed-testing publish job.
 
 Grant `roles/iam.workloadIdentityUser` to the repository-specific principal set,
 not to the whole pool:
@@ -170,22 +169,29 @@ principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/wor
 ```
 
 In Play Console, invite that service account only to
-`com.speakkeys.keyboard`. Grant the app-level permission needed to release to
-production. An internal-track smoke test also needs **Release apps to testing
-tracks**. Do not grant admin, finance, order, review, or access to other apps.
+`com.speakkeys.keyboard` and grant **Release apps to testing tracks**. Do not
+grant production-release, admin, finance, order, review, or access to other apps.
 
-## 3. Verify before enabling production
+## 3. Verify closed testing
 
 1. Confirm Play App Signing shows the upload certificate matching the keystore.
 2. Confirm the highest version code ever uploaded in Play Console is no greater
    than `102`. If it is higher, raise `version_code_base` in the workflow above
    that value before the first run.
-3. Set `PLAY_TRACK` to `internal` and manually run the workflow once.
-4. Confirm tests pass, the bundle is signed, and the internal release installs.
-5. Change `PLAY_TRACK` to `production` for subsequent merged Android PRs.
+3. Confirm the initial **Closed testing > Alpha** track exists and has the intended
+   tester list or Google Group configured.
+4. Manually run the workflow once.
+5. Confirm tests pass, the bundle is signed, and an opted-in tester can install
+   the closed-testing release.
 
-Only production source and build changes trigger a release. Documentation,
+Only Android release source and build changes trigger a release. Documentation,
 tests, Apple-only shared code, and other repository maintenance do not.
+
+The workflow intentionally pins uploads to `alpha`, the API identifier for the
+initial closed-testing track. A custom closed track must use its exact Play
+Console track name. Moving SpeakKeys to production requires a reviewed workflow
+change and additional Play Console permission; it cannot happen by changing an
+Actions variable.
 
 The workflow generates `versionCode` as `102 + github.run_number` and passes it
 to Gradle with a validated property. Runs are serialized, and a rerun keeps the

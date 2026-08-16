@@ -1,4 +1,4 @@
-name: Release Android to Google Play
+name: Release Android to Google Play closed testing
 
 # pull_request_target lets merged PRs from forks use the trusted base workflow.
 # The build job is gated on merged == true and checks out the trusted main SHA;
@@ -28,7 +28,7 @@ permissions: {}
 # Google Play edits must be serialized. queue: max preserves up to 100 merged
 # Android PR releases instead of replacing an older pending run.
 concurrency:
-  group: speakkeys-google-play-production
+  group: speakkeys-google-play-closed-testing
   queue: max
 
 jobs:
@@ -172,11 +172,11 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Sign and publish to Google Play
+    name: Sign and publish to Google Play closed testing
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: google-play-production
+    environment: google-play-closed-testing
     permissions:
       actions: read
       id-token: write
@@ -189,7 +189,6 @@ jobs:
         env:
           WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           PLAY_SERVICE_ACCOUNT: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
-          PLAY_RELEASE_TRACK: ${{ vars.PLAY_TRACK }}
         run: |
           set -euo pipefail
           if [[ -z "${WORKLOAD_IDENTITY_PROVIDER:-}" ]]; then
@@ -198,10 +197,6 @@ jobs:
           fi
           if [[ -z "${PLAY_SERVICE_ACCOUNT:-}" ]]; then
             echo "Missing GOOGLE_PLAY_SERVICE_ACCOUNT environment variable." >&2
-            exit 1
-          fi
-          if [[ "$PLAY_RELEASE_TRACK" != "internal" && "$PLAY_RELEASE_TRACK" != "production" ]]; then
-            echo "PLAY_TRACK must be set to internal or production." >&2
             exit 1
           fi
 
@@ -264,13 +259,14 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
 
-      - name: Upload Google Play release
+      - name: Upload Google Play closed-testing release
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJson: ${{ steps.google-auth.outputs.credentials_file_path }}
           packageName: com.speakkeys.keyboard
           releaseFiles: dist/SpeakKeys.aab
-          tracks: ${{ vars.PLAY_TRACK }}
+          # Google Play's initial closed-testing track uses the API name alpha.
+          tracks: alpha
           status: completed
           mappingFile: dist/mapping.txt
           debugSymbols: dist/native-debug-symbols.zip
