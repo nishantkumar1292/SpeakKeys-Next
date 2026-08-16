@@ -60,8 +60,8 @@ Set these environment variables; they are identifiers, not secrets:
 
 | Variable | Value |
 | --- | --- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name, such as `projects/123456789/locations/global/workloadIdentityPools/github/providers/speakkeys` |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Service account email used for Play publishing |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/669141656625/locations/global/workloadIdentityPools/github-actions/providers/speakkeys` |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | `speakkeys-play-publisher@speakkeys.iam.gserviceaccount.com` |
 
 They can be configured without exposing credential material:
 
@@ -165,7 +165,7 @@ Grant `roles/iam.workloadIdentityUser` to the repository-specific principal set,
 not to the whole pool:
 
 ```text
-principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/<POOL_ID>/attribute.repository_id/1206260724
+principalSet://iam.googleapis.com/projects/669141656625/locations/global/workloadIdentityPools/github-actions/attribute.repository_id/1206260724
 ```
 
 In Play Console, invite that service account only to
