@@ -134,8 +134,8 @@ implementation("androidx.compose.runtime:runtime-livedata")
 
 Also add `com.google.gms.google-services` plugin to root `build.gradle.kts` and apply it in `app/build.gradle.kts`.
 
-**1.5 Copy google-services.json**
-Copy `/Users/nishantkumar/Documents/personal/SpeakKeys/app/google-services.json` to `app/google-services.json` in this repo.
+**1.5 Add google-services.json**
+Register the Android app `com.speakkeys.keyboard` in Firebase, then download its `google-services.json` to `app/google-services.json` in this repo. Do not reuse the original SpeakKeys file: it is registered only for the legacy `com.elishaazaria.sayboard` package.
 
 **1.6 Bump minSdk to 24**
 In `app/build.gradle.kts`, change `minSdk = 21` to `minSdk = 24` (required for SpeakKeys' cloud APIs and Compose Material).
@@ -281,7 +281,7 @@ All files from `app/src/main/java/com/elishaazaria/sayboard/`:
 - `utils/ModelListPreference.kt` — JetPref serializer
 
 ### Config files
-- `app/google-services.json` → `app/google-services.json`
+- Firebase config registered for `com.speakkeys.keyboard` → `app/google-services.json` (git-ignored)
 
 ### String resources
 Copy voice-related strings from `/Users/nishantkumar/Documents/personal/SpeakKeys/app/src/main/res/values/strings.xml` — specifically:
@@ -335,8 +335,8 @@ Each backend implements `RecognizerSource` → creates `Recognizer` instances. `
 |---|---|---|---|
 | applicationId | `helium314.keyboard` | `com.speakkeys.keyboard` | `com.speakkeys.keyboard` |
 | minSdk | 21 | 24 | **24** |
-| targetSdk | 35 | 35 | 35 |
-| compileSdk | 35 | 35 | 35 |
+| targetSdk | 35 | 35 | **36** |
+| compileSdk | 35 | 35 | **36** |
 | Kotlin | 2.2.21 | 2.2.10 | 2.2.21 (HeliBoard's) |
 | AGP | plugins block | 9.0.0 | Keep HeliBoard's |
 | NDK | 28 | none | 28 (HeliBoard's native code) |
