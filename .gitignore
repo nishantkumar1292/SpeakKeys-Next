@@ -16,8 +16,17 @@ tools/*.txt
 *.diff
 *.sh
 
-# Firebase config (contains API key and OAuth client IDs) — must be supplied locally
+# Firebase client config is supplied locally or by CI, never committed here.
 app/google-services.json
+
+# Release credentials must only be materialized from GitHub Actions secrets.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+service-account*.json
+gha-creds-*.json
 
 # files required for play store submission
 play-store-assets/

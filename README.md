@@ -107,6 +107,7 @@ That file is intentionally ignored by Git. The tracked file under `app/src/runTe
 ```
 
 An upload-ready release also needs the SpeakKeys release keystore values described in `app/build.gradle.kts`.
+Maintainers can follow the [Google Play release automation guide](docs/play-store-release.md) to configure secret-safe releases after Android pull requests are merged.
 
 ## Project structure
 

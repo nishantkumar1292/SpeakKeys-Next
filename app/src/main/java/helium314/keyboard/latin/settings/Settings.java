@@ -186,6 +186,8 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     public static final String PREF_LAST_SHOWN_EMOJI_CATEGORY_ID = "last_shown_emoji_category_id";
     public static final String PREF_LAST_SHOWN_EMOJI_CATEGORY_PAGE_ID = "last_shown_emoji_category_page_id";
 
+    // Legacy storage key; the value is now a settings-migration version,
+    // not the Play versionCode.
     public static final String PREF_VERSION_CODE = "version_code";
     public static final String PREF_LIBRARY_CHECKSUM = "lib_checksum";
     public static final String PREF_SAVE_SUBTYPE_PER_APP = "save_subtype_per_app";

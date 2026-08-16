@@ -1,5 +1,28 @@
 import com.android.build.api.variant.ApplicationVariant
 
+val speakKeysVersionCode = providers.gradleProperty("speakkeysVersionCode").orNull?.let { value ->
+    val parsed = value.toIntOrNull()
+        ?: error("speakkeysVersionCode must be an integer, got: $value")
+    require(parsed in 1..2_100_000_000) {
+        "speakkeysVersionCode must be between 1 and 2100000000, got: $parsed"
+    }
+    parsed
+} ?: 102
+
+val speakKeysVersionNameSuffix = providers.gradleProperty("speakkeysVersionNameSuffix").orNull
+    ?.let { value ->
+        require(value.matches(Regex("[0-9A-Za-z][0-9A-Za-z._-]{0,63}"))) {
+            "speakkeysVersionNameSuffix must be 1-64 filename-safe characters, got: $value"
+        }
+        value
+    }
+val speakKeysVersionName = "v0.1.2" + speakKeysVersionNameSuffix?.let { "+$it" }.orEmpty()
+
+val speakKeysUnsignedRelease = providers.gradleProperty("speakkeysUnsignedRelease").orNull?.let { value ->
+    value.toBooleanStrictOrNull()
+        ?: error("speakkeysUnsignedRelease must be true or false, got: $value")
+} ?: false
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -15,8 +38,8 @@ android {
         applicationId = "com.speakkeys.keyboard"
         minSdk = 24
         targetSdk = 36
-        versionCode = 102
-        versionName = "v0.1.2"
+        versionCode = speakKeysVersionCode
+        versionName = speakKeysVersionName
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -26,8 +49,12 @@ android {
 
     signingConfigs {
         create("release") {
-            val storePath = (project.findProperty("SPEAKKEYS_STORE_FILE") as String?)
-                ?: System.getenv("SPEAKKEYS_STORE_FILE")
+            val storePath = if (speakKeysUnsignedRelease) {
+                null
+            } else {
+                (project.findProperty("SPEAKKEYS_STORE_FILE") as String?)
+                    ?: System.getenv("SPEAKKEYS_STORE_FILE")
+            }
             if (storePath != null) {
                 storeFile = file(storePath)
                 storePassword = (project.findProperty("SPEAKKEYS_STORE_PASSWORD") as String?)
@@ -70,7 +97,7 @@ android {
             isJniDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
         }
-        base.archivesName.set("SpeakKeys_" + defaultConfig.versionName)
+        base.archivesName.set("SpeakKeys_$speakKeysVersionName")
         // got a little too big for GitHub after some dependency upgrades, so we remove the largest dictionary
         androidComponents.onVariants { variant: ApplicationVariant ->
             if (variant.buildType == "debug") {
