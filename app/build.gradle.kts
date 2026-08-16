@@ -9,14 +9,14 @@ plugins {
 }
 
 android {
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.speakkeys.keyboard"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 101
-        versionName = "v0.1.1"
+        targetSdk = 36
+        versionCode = 102
+        versionName = "v0.1.2"
         ndk {
             abiFilters.clear()
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
@@ -134,7 +134,7 @@ android {
 
 dependencies {
     // androidx
-    implementation("androidx.core:core-ktx:1.16.0") // 1.17 requires SDK 36
+    implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.autofill:autofill:1.3.0")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
@@ -180,7 +180,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.17.0")
-    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.test:runner:1.6.2")
     testImplementation("androidx.test:core:1.6.1")
 }

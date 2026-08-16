@@ -1,136 +1,125 @@
-# HeliBoard
-HeliBoard is a privacy-conscious and customizable open-source keyboard, based on AOSP / OpenBoard.
-Does not use internet permission, and thus is 100% offline.
+<p align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="112" height="112" alt="SpeakKeys app icon">
+</p>
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/helium314.keyboard/)
-[<img src="https://user-images.githubusercontent.com/663460/26973090-f8fdc986-4d14-11e7-995a-e7c5e79ed925.png" alt="Get APK from GitHub" height="80">](https://github.com/HeliBorg/HeliBoard/releases/latest)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height="80">](https://apt.izzysoft.de/fdroid/index/apk/helium314.keyboard)
+<h1 align="center">SpeakKeys</h1>
 
-## Table of Contents
+<p align="center"><strong>A voice-first Android keyboard with full typing support.</strong></p>
 
-- [Features](#features)
-- [Contributing](#contributing-)
-   * [Reporting Issues](#reporting-issues)
-   * [Translations](#translations)
-   * [To Community Creation](#to-community)
-   * [Code Contribution](CONTRIBUTING.md)
-- [Links](#links)
-- [License](#license)
-- [Credits](#credits)
-  * [Funding](#funding)
+SpeakKeys is an open-source Android keyboard that combines cloud speech recognition with a mature, customizable typing experience. Its microphone lives in the suggestion strip, so speaking, typing, autocorrect, emoji, and clipboard tools stay available in one keyboard.
 
-# Features
-<ul>
-  <li>Add dictionaries for suggestions and spell check</li>
-  <ul>
-    <li>build your own, or get them  <a href="https://codeberg.org/Helium314/aosp-dictionaries#dictionaries">here</a> (quality may vary)</li>
-    <li>additional dictionaries for emojis or scientific symbols can be used to provide suggestions (similar to "emoji search")</li>
-    <li>note that for Korean layouts, suggestions only work using <a href="https://github.com/openboard-team/openboard/commit/83fca9533c03b9fecc009fc632577226bbd6301f">this dictionary</a>, the tools in the dictionary repository are not able to create working dictionaries</li>
-  </ul>
-  <li>Customize keyboard themes (style, colors and background image)</li>
-  <li>Emoji search (inline and separate, requires <a href="https://codeberg.org/Helium314/aosp-dictionaries">emoji dictionary</a>)</li>
-  <ul>
-    <li>can follow the system's day/night setting on Android 10+ (and on some versions of Android 9)</li>
-    <li>can follow dynamic colors for Android 12+</li>
-  </ul>
-  <li>Customize keyboard <a href="https://github.com/HeliBorg/HeliBoard/blob/main/layouts.md">layouts</a> (only available when disabling <i>use system languages</i>)</li>
-  <li>Customize special layouts, like symbols, number,  or functional key layout</li>
-  <li>Multilingual typing</li>
-  <li>Glide typing (<i>only with closed source library</i> ☹️)</li>
-  <ul>
-    <li>library not included in the app, as there is no compatible open source library available</li>
-    <li>can be extracted from GApps packages ("<i>swypelibs</i>"), or downloaded <a href="https://github.com/erkserkserks/openboard/tree/46fdf2b550035ca69299ce312fa158e7ade36967/app/src/main/jniLibs">here</a> (click on the file and then "raw" or the tiny download button)</li>
-  </ul>
-  <li>Clipboard history</li>
-  <li>One-handed mode</li>
-  <li>Split keyboard</li>
-  <li>Number pad</li>
-  <li>Backup and restore your settings and learned word / history data</li>
-</ul>
+> [!NOTE]
+> SpeakKeys is under active development. Voice transcription requires an internet connection and at least one configured cloud engine; ordinary typing remains available without a voice engine.
 
-For [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ), [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features) and more information about the app and features, please visit the [wiki](https://github.com/HeliBorg/HeliBoard/wiki)
+## How voice typing works
 
-# Contributing ❤
+1. Tap the microphone at the right side of the suggestion strip to start recording.
+2. Speak while the strip displays an animated waveform.
+3. Tap the microphone again to stop. Recording also stops automatically after 30 seconds.
+4. SpeakKeys displays a transcription indicator, inserts the result into the active text field, and refreshes suggestions.
 
-## Reporting Issues
+Voice results use the surrounding text for spacing and capitalization. Transcription currently runs after recording stops rather than appearing live.
 
-Whether you encountered a bug, or want to see a new feature in HeliBoard, you can contribute to the project by opening a new issue [here](https://github.com/HeliBorg/HeliBoard/issues). Your help is always welcome!
+## Voice engines
 
-Before opening a new issue, be sure to check the following:
- - **Does the issue already exist?** Make sure a similar issue has not been reported by browsing [existing issues](https://github.com/HeliBorg/HeliBoard/issues?q=). Please search open and closed issues. In case of feature requests you could also check the [FAQ](https://github.com/HeliBorg/HeliBoard/wiki/FAQ) and [hidden features](https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features).
- - **Is the issue still relevant?** Make sure your issue is not already fixed in the latest version of HeliBoard.
- - **Is it a single topic?** If you want to suggest multiple things, open multiple issues.
- - **Did you use the issue template?** It is important to make life of our kind contributors easier by avoiding issues that miss key information to their resolution.
-Note that issues that that ignore part of the issue template will likely get treated with very low priority, as often they are needlessly hard to read or understand (e.g. huge screenshots, not providing a proper description, or addressing multiple topics). Blatant violation of the guidelines may result in the issue getting closed.
+SpeakKeys supports three configuration paths. Their priority can be reordered in **Settings > Voice Input**.
 
-If you're interested, you can read the following useful text about effective bug reporting (a bit longer read): https://www.chiark.greenend.org.uk/~sgtatham/bugs.html
+| Engine | Setup | Audio route |
+| --- | --- | --- |
+| SpeakKeys Auto | Sign in with Google | Through the authenticated SpeakKeys proxy to Sarvam |
+| OpenAI Whisper | Add your own OpenAI API key | Directly to OpenAI |
+| Sarvam Cloud | Add your own Sarvam API key | Directly to Sarvam |
 
-## Translations
-Translations can be added using [Weblate](https://translate.codeberg.org/projects/heliboard/). You will need an account to update translations and add languages. Add the language you want to translate to in Languages -> Manage translated languages in the top menu bar.
-Updating translations in a PR will not be accepted, as it may cause conflicts with Weblate translations.
+Voice settings also include Whisper language and prompt controls, Hindi-to-Roman transliteration, Sarvam native-script or Roman output, and automatic capitalization.
 
-Some notes on translations
-* when translating metadata, translating the changelogs is rather useless. It's available as it was requested by translators.
-* the `hidden_features_message` is horrible to translate with Weblate, and serves little benefit as it's just a copy of what's already in the wiki: https://github.com/HeliBorg/HeliBoard/wiki/9.-Hidden-features. It's been made available in the app on user request/contribution.
+## Full keyboard features
 
-## To Community
-There is the [discussions on GitHub](https://github.com/HeliBorg/HeliBoard/discussions), or if you prefer a more open network there is [Lemmy](https://lemmy.world/c/Heliboard).
-You can share your themes, layouts and dictionaries with other people:
-* Themes can be saved and loaded using the menu on top-right in the _adjust colors_ screen
-  * You can share custom colors in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-colors)
-* Custom keyboard layouts are text files whose content you can edit, copy and share
-  * this applies to main keyboard layouts and to special layouts adjustable in advanced settings
-  * see [layouts.md](layouts.md) for details
-  * You can share custom layouts in a separate [discussion section](https://github.com/HeliBorg/HeliBoard/discussions/categories/custom-layout)
-* Creating dictionaries is a little more work
-  * first you will need a wordlist, as described [here](https://codeberg.org/Helium314/aosp-dictionaries/src/branch/main/wordlists/sample.combined) and in the repository readme
-  * the you need to compile the dictionary using [external tools](https://github.com/remi0s/aosp-dictionary-tools)
-  * the resulting file (and ideally the wordlist too) can be shared with other users
-  * note that there will not be any further dictionaries added to this app, but you can add dictionaries to the [dictionaries repository](https://codeberg.org/Helium314/aosp-dictionaries)
+- Suggestions, autocorrection, spell checking, and personal dictionaries
+- Multilingual typing and customizable layouts
+- Themes, colors, sizing, number row, and configurable toolbar
+- Emoji keyboard and search, clipboard history, and text-editing tools
+- One-handed, split-keyboard, and number-pad layouts
+- Backup and restore for settings and learned data
+- Optional glide typing with a separately supplied compatible library; the library is not bundled
 
-## Code Contribution
-See [Contribution Guidelines](CONTRIBUTING.md)
+The typing engine is inherited from HeliBoard and continues to run on-device. SpeakKeys adds its voice pipeline without replacing the full keyboard.
 
-# Links
-* Info
-  * [Wiki](https://github.com/HeliBorg/HeliBoard/wiki), including FAQ, help on customizing layouts, and gesture data gathering
-  * [Layout documentation](layouts.md) (more technical info regarding layout customization)
-  * [For creating custom dictionaries](https://codeberg.org/Helium314/aosp-dictionaries#wordlist-information) (see also top of the linked readme)
-* Community
-  * [Lemmy](https://lemmy.world/c/Heliboard)
-  * [Reddit](https://www.reddit.com/r/HeliBoard)
-  * GitHub [discussions](https://github.com/HeliBorg/HeliBoard/discussions)
-* Other
-  * [Translations](https://translate.codeberg.org/projects/heliboard/)
-  * [Dictionaries](https://codeberg.org/Helium314/aosp-dictionaries)
-  * [k3lp](https://codeberg.org/k3lp/k3lp) is a WIP library for keyboard layout parsing that will be implemented in HeliBoard when ready (created by [FlorisBoard](https://github.com/florisboard/florisboard/) maintainers)
-  * [swipe-o-scope](https://codeberg.org/eclexic/swipe-o-scope) for visualizing gesture data as created when using gesture data gathering
+## Get started
 
-# License
+SpeakKeys requires Android 7.0 or newer.
 
-HeliBoard (as a fork of OpenBoard) is licensed under GNU General Public License v3.0.
+1. Install and launch SpeakKeys.
+2. Follow onboarding to grant microphone access, enable the keyboard, and select it as the current input method.
+3. Open **Voice Input** from SpeakKeys settings.
+4. Sign in for SpeakKeys Auto, or add an OpenAI or Sarvam API key.
+5. Open any text field and use the microphone in the suggestion strip.
 
- > Permissions of this strong copyleft license are conditioned on making available complete source code of licensed works and modifications, which include larger works using a licensed work, under the same license. Copyright and license notices must be preserved. Contributors provide an express grant of patent rights.
+You can return to the SpeakKeys app at any time to check whether the keyboard is enabled, see the selected voice engine, change settings, or use the built-in test field.
 
-See repo's [LICENSE](/LICENSE) file.
+## Voice privacy and network access
 
-Since the app is based on Apache 2.0 licensed AOSP Keyboard, an [Apache 2.0](LICENSE-Apache-2.0) license file is provided.
-The icon is licensed under [Creative Commons BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A [license file](LICENSE-CC-BY-SA-4.0) is also included.
+Voice transcription relies on:
 
-# Credits
-- Icon by [Fabian OvrWrt](https://github.com/FabianOvrWrt) with contributions from [The Eclectic Dyslexic](https://github.com/the-eclectic-dyslexic)
-- [OpenBoard](https://github.com/openboard-team/openboard)
-- [AOSP Keyboard](https://android.googlesource.com/platform/packages/inputmethods/LatinIME/)
-- [LineageOS](https://review.lineageos.org/admin/repos/LineageOS/android_packages_inputmethods_LatinIME)
-- [Simple Keyboard](https://github.com/rkkr/simple-keyboard)
-- [Indic Keyboard](https://gitlab.com/indicproject/indic-keyboard)
-- [FlorisBoard](https://github.com/florisboard/florisboard/)
-- Our [contributors](https://github.com/HeliBorg/HeliBoard/graphs/contributors)
+- `RECORD_AUDIO` to capture speech after you start voice input.
+- `INTERNET` to authenticate when needed and send recorded audio to the selected transcription service.
 
-## Funding
+Direct-provider API keys and app preferences are stored on the device. Voice audio leaves the device for cloud transcription, and the selected provider's terms and data-handling policies apply. Google/Firebase account information is used only when you choose SpeakKeys Auto.
 
-This project is funded through [NGI Mobifree Fund](https://nlnet.nl/mobifree), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) program. Learn more at the [NLnet project page](https://nlnet.nl/project/GestureTyping).
+The inherited keyboard also declares Android permissions for features such as haptic feedback, user dictionaries, initialization after reboot, and optional contact-name suggestions.
 
-[<img src="https://nlnet.nl/logo/banner.png" alt="NLnet foundation logo" width="20%" />](https://nlnet.nl)
+See the [SpeakKeys Privacy Policy](PRIVACY_POLICY.md) for details.
 
-Further the project benefits from donations provided by many users (thank you all!).
+## Build from source
+
+### Requirements
+
+- Android Studio with Android SDK Platform 36
+- Android NDK `28.0.13004108`
+- JDK 21 (used by CI and by the Android 16 unit-test environment)
+- A Firebase Android configuration registered for `com.speakkeys.keyboard`
+
+The Gradle wrapper is included; a separate Gradle installation is not needed.
+
+### Firebase configuration
+
+Normal app builds require a real `google-services.json`:
+
+1. Register the Android app `com.speakkeys.keyboard` in your Firebase project.
+2. Enable Google authentication and configure its OAuth client if you need SpeakKeys Auto.
+3. Download the configuration file to `app/google-services.json`.
+
+That file is intentionally ignored by Git. The tracked file under `app/src/runTests/` contains dummy values for the CI-only test variant and must not be used for a production build.
+
+### Commands
+
+```bash
+# Fast development APK
+./gradlew :app:assembleDebugNoMinify
+
+# Unit tests used by pull-request CI
+./gradlew :app:testRunTestsUnitTest
+
+# Android lint
+./gradlew :app:lintDebug
+
+# Play Store bundle
+./gradlew :app:bundleRelease
+```
+
+An upload-ready release also needs the SpeakKeys release keystore values described in `app/build.gradle.kts`.
+
+## Project structure
+
+- `app/` — Android IME, typing engine, onboarding, settings, voice UI, and the bridge that commits transcripts into text fields
+- `shared/` — Kotlin Multiplatform audio encoding, text processing, and cloud-recognizer implementations
+- `tools/make-emoji-keys/` — utility for generating emoji-key data
+
+## Contributing
+
+Issues and focused pull requests are welcome. Before submitting a change, run the relevant unit tests and lint checks, preserve existing license notices, and call out any change that affects microphone, network, authentication, or text-handling behavior.
+
+## License and upstream acknowledgements
+
+The SpeakKeys Android app is licensed under the [GNU General Public License v3.0](LICENSE). The shared Kotlin Multiplatform module remains under Apache 2.0 terms, and inherited AOSP components retain their [Apache 2.0](LICENSE-Apache-2.0) notices. Some inherited artwork is covered by [CC BY-SA 4.0](LICENSE-CC-BY-SA-4.0).
+
+SpeakKeys builds on HeliBoard's keyboard engine. HeliBoard itself descends from [OpenBoard](https://github.com/openboard-team/openboard) and the [AOSP LatinIME](https://android.googlesource.com/platform/packages/inputmethods/LatinIME/) project. SpeakKeys retains the copyright and license notices of those projects and their contributors.

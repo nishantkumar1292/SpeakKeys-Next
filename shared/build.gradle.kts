@@ -7,7 +7,7 @@ plugins {
 kotlin {
     androidLibrary {
         namespace = "com.elishaazaria.sayboard.shared"
-        compileSdk = 35
+        compileSdk = 36
         minSdk = 24
     }
 
