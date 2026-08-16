@@ -265,7 +265,7 @@ jobs:
           serviceAccountJson: ${{ steps.google-auth.outputs.credentials_file_path }}
           packageName: com.speakkeys.keyboard
           releaseFiles: dist/SpeakKeys.aab
-          # Google Play's initial closed-testing track uses the API name alpha.
+          # SpeakKeys' Closed testing > Alpha track uses the API name alpha.
           tracks: alpha
           status: completed
           mappingFile: dist/mapping.txt

@@ -1,5 +1,5 @@
-# Production release trust boundary. This takes effect when main requires Code
-# Owner review in the repository's branch-protection rules.
+# Google Play closed-testing release trust boundary. This takes effect when
+# main requires Code Owner review in the repository's branch-protection rules.
 /.github/CODEOWNERS @nishantkumar1292
 /.github/workflows/release-play.yml @nishantkumar1292
 /app/build.gradle.kts @nishantkumar1292

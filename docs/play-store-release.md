@@ -1,8 +1,8 @@
 # Google Play closed-testing release automation
 
-SpeakKeys releases an Android App Bundle to Google Play's initial closed-testing
-track after a pull request that changes the Android release build is merged into `main`. The workflow is
-`.github/workflows/release-play.yml`.
+SpeakKeys releases an Android App Bundle to its Google Play **Closed testing >
+Alpha** track after a pull request that changes the Android release build is
+merged into `main`. The workflow is `.github/workflows/release-play.yml`.
 
 The workflow will remain safely disabled until the configuration below exists.
 Do not put any of these values in a commit, pull request, workflow file, issue,
@@ -24,7 +24,7 @@ The workflow separates building from publishing:
 2. The publish job does not check out or execute repository code. It signs the
    downloaded AAB with the Play **upload key**, obtains a short-lived Google
    credential through Workload Identity Federation, and uploads the bundle to
-   the initial closed-testing track (`alpha` in the Developer API).
+   SpeakKeys' closed-testing Alpha track (`alpha` in the Developer API).
 
 The app-signing key managed by Google Play must never be stored in GitHub. Only
 use the separate, revocable upload key registered in Play App Signing.
@@ -178,7 +178,7 @@ grant production-release, admin, finance, order, review, or access to other apps
 2. Confirm the highest version code ever uploaded in Play Console is no greater
    than `102`. If it is higher, raise `version_code_base` in the workflow above
    that value before the first run.
-3. Confirm the initial **Closed testing > Alpha** track exists and has the intended
+3. Confirm SpeakKeys' **Closed testing > Alpha** track exists and has the intended
    tester list or Google Group configured.
 4. Manually run the workflow once.
 5. Confirm tests pass, the bundle is signed, and an opted-in tester can install
@@ -187,11 +187,12 @@ grant production-release, admin, finance, order, review, or access to other apps
 Only Android release source and build changes trigger a release. Documentation,
 tests, Apple-only shared code, and other repository maintenance do not.
 
-The workflow intentionally pins uploads to `alpha`, the API identifier for the
-initial closed-testing track. A custom closed track must use its exact Play
-Console track name. Moving SpeakKeys to production requires a reviewed workflow
-change and additional Play Console permission; it cannot happen by changing an
-Actions variable.
+The workflow intentionally pins uploads to `alpha`, the API identifier used by
+SpeakKeys' **Closed testing > Alpha** track. Verify that track exists before the
+first run. A custom closed track must use its exact Play Console track name.
+Moving SpeakKeys to production requires a reviewed workflow change and
+additional Play Console permission; it cannot happen by changing an Actions
+variable.
 
 The workflow generates `versionCode` as `102 + github.run_number` and passes it
 to Gradle with a validated property. Runs are serialized, and a rerun keeps the
