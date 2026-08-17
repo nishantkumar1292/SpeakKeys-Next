@@ -48,11 +48,28 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 
+// These are intentionally independent from the Google Play versionCode. Keep the
+// SpeakKeys baseline fixed. Increment CURRENT only when adding a settings migration;
+// the next migration should handle oldVersion <= 3202 and set CURRENT to 3203.
+internal const val SPEAKKEYS_SETTINGS_MIGRATION_BASELINE = 3202
+internal const val CURRENT_SETTINGS_MIGRATION_VERSION = SPEAKKEYS_SETTINGS_MIGRATION_BASELINE
+
+internal fun normalizeStoredSettingsMigrationVersion(storedVersion: Int): Int =
+    if (storedVersion in 100..102) SPEAKKEYS_SETTINGS_MIGRATION_BASELINE else storedVersion
+
 fun checkVersionUpgrade(context: Context) {
     val prefs = context.prefs()
-    val oldVersion = prefs.getInt(Settings.PREF_VERSION_CODE, 0)
-    if (oldVersion != BuildConfig.VERSION_CODE)
+    val storedVersion = prefs.getInt(Settings.PREF_VERSION_CODE, 0)
+    val oldVersion = normalizeStoredSettingsMigrationVersion(storedVersion)
+    // SpeakKeys initially reset the Play versionCode from HeliBoard's sequence to
+    // 100. Those releases already ran the inherited migrations, so bridge them to
+    // the independent migration sequence without running every migration again.
+    if (oldVersion != storedVersion) {
+        prefs.edit { putInt(Settings.PREF_VERSION_CODE, oldVersion) }
+    }
+    if (oldVersion != CURRENT_SETTINGS_MIGRATION_VERSION) {
         AppUpgrade.onUpgrade(context)
+    }
 }
 
 fun transferOldPinnedClips(context: Context) {
@@ -626,7 +643,7 @@ private object AppUpgrade {
         }
         upgradeToolbarPrefs(prefs)
         LayoutUtilsCustom.onLayoutFileChanged() // just to be sure
-        prefs.edit { putInt(Settings.PREF_VERSION_CODE, BuildConfig.VERSION_CODE) }
+        prefs.edit { putInt(Settings.PREF_VERSION_CODE, CURRENT_SETTINGS_MIGRATION_VERSION) }
     }
 
     // old variant for old folder structure
