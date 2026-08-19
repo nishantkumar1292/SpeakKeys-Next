@@ -84,6 +84,24 @@ class InputLogicTest {
         assertEquals("", composingText)
     }
 
+    @Test fun `voice commit resets an in-progress typed word before typing resumes`() {
+        reset()
+        chainInput("hel")
+        assertEquals("hel", composingText)
+
+        latinIME.commitVoiceResult("lo duniya ")
+        handleMessages()
+
+        assertEquals("hello duniya ", text)
+        assertEquals("", composingText)
+        assertEquals("", composer.typedWord.toString())
+
+        input('a')
+        assertEquals("hello duniya a", text)
+        assertEquals("a", composingText)
+        assertEquals("a", composer.typedWord.toString())
+    }
+
     @Test fun delete() {
         reset()
         setText("hello there ")

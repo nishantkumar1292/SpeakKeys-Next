@@ -1,0 +1,8 @@
+# Serving-image top-level dependencies are pinned for reproducible rebuilds.
+ctranslate2==4.8.0
+fastapi==0.128.8
+firebase-admin==7.1.0
+numpy==2.2.2
+prometheus-client==0.26.0
+transformers==4.48.3
+uvicorn[standard]==0.40.0

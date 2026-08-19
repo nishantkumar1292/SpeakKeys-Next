@@ -31,6 +31,24 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val taraRealtimeEndpoint = providers.gradleProperty("speakkeys.taraRealtimeEndpoint")
+    .orElse(providers.environmentVariable("SPEAKKEYS_TARA_REALTIME_ENDPOINT"))
+    .orElse("")
+val configuredTaraRealtimeEndpoint = taraRealtimeEndpoint.get().trim()
+require(
+    configuredTaraRealtimeEndpoint.isEmpty() ||
+        configuredTaraRealtimeEndpoint.startsWith("wss://", ignoreCase = true)
+) {
+    "speakkeys.taraRealtimeEndpoint must be empty or use encrypted wss:// transport"
+}
+
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")}\""
+
 android {
     compileSdk = 36
 
@@ -45,6 +63,13 @@ android {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        // The Tara option stays out of the catalog until a real server endpoint is supplied.
+        // This keeps an undeployed or staging backend from becoming a dead production choice.
+        buildConfigField(
+            "String",
+            "TARA_REALTIME_ENDPOINT",
+            configuredTaraRealtimeEndpoint.asBuildConfigString(),
+        )
     }
 
     signingConfigs {
@@ -203,6 +228,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
 
+    // Realtime hosted speech and downloadable on-device speech models
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.alphacephei:vosk-android:0.3.75")
+
     // test
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
@@ -210,4 +240,5 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.test:runner:1.6.2")
     testImplementation("androidx.test:core:1.6.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

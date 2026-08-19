@@ -21,6 +21,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,12 +46,24 @@ fun TextInputDialog(
     textInputLabel: @Composable (() -> Unit)? = null,
     singleLine: Boolean = true,
     keyboardType: KeyboardType = KeyboardType.Unspecified,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    saveTextInInstanceState: Boolean = true,
     properties: DialogProperties = DialogProperties(),
     reducePadding: Boolean = false,
     checkTextValid: (text: String) -> Boolean = { it.isNotBlank() }
 ) {
-    var value by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(initialText, selection = TextRange(if (singleLine) initialText.length else 0)))
+    val initialValue = {
+        mutableStateOf(
+            TextFieldValue(
+                initialText,
+                selection = TextRange(if (singleLine) initialText.length else 0),
+            ),
+        )
+    }
+    var value by if (saveTextInInstanceState) {
+        rememberSaveable(stateSaver = TextFieldValue.Saver, init = initialValue)
+    } else {
+        remember(initialText, singleLine) { initialValue() }
     }
 
     ThreeButtonAlertDialog(
@@ -77,6 +90,7 @@ fun TextInputDialog(
                         .focusRequester(focusRequester),
                     label = textInputLabel,
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                    visualTransformation = visualTransformation,
                     singleLine = singleLine,
                     textStyle = contentTextDirectionStyle,
                 )

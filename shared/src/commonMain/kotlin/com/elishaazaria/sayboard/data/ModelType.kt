@@ -6,6 +6,13 @@ import kotlinx.serialization.Serializable
 enum class ModelType {
     WhisperCloud,
     SarvamCloud,
+    ElevenLabsCloud,
     ProxiedWhisperCloud,
-    ProxiedSarvamCloud
+    ProxiedSarvamCloud,
+    AndroidOnDevice,
+    /** Catalog-driven Vosk model. Path, not this enum value, identifies language and version. */
+    VoskLocal,
+    /** Legacy persisted values retained so existing preferences continue to deserialize. */
+    VoskHindiLocal,
+    VoskEnglishIndiaLocal,
 }

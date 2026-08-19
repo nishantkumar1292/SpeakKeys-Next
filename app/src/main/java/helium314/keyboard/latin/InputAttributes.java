@@ -36,6 +36,9 @@ public final class InputAttributes {
     final public boolean mMayOverrideShowingSuggestions;
     final public boolean mApplicationSpecifiedCompletionOn;
     final public boolean mShouldInsertSpacesAutomatically;
+    /** Whether SpeakKeys' own microphone may record for this editor. */
+    final public boolean mShouldAllowSpeakKeysVoiceInput;
+    /** Whether the separate, external voice-IME shortcut may be shown. */
     final public boolean mShouldShowVoiceInputKey;
     final public boolean mNoLearning;
     /**
@@ -78,6 +81,7 @@ public final class InputAttributes {
             mInputTypeShouldAutoCorrect = false;
             mApplicationSpecifiedCompletionOn = false;
             mShouldInsertSpacesAutomatically = false;
+            mShouldAllowSpeakKeysVoiceInput = false;
             mShouldShowVoiceInputKey = false;
             mDisableGestureFloatingPreviewText = false;
             mIsGeneralTextInput = false;
@@ -98,12 +102,14 @@ public final class InputAttributes {
 
         mShouldInsertSpacesAutomatically = InputTypeUtils.isAutoSpaceFriendlyType(mInputType);
 
-        final boolean noMicrophone = mIsPasswordField
-                || InputTypeUtils.isEmailVariation(variation)
-                || hasNoMicrophoneKeyOption()
-                || !RichInputMethodManager.isInitialized() // avoid crash when only using spell checker
-                || !RichInputMethodManager.getInstance().isShortcutImeReady();
-        mShouldShowVoiceInputKey = !noMicrophone;
+        // SpeakKeys owns the dedicated mic, so its editor-safety policy must not depend on an
+        // unrelated external voice IME being installed. Keep the legacy toolbar shortcut policy
+        // separate because that key still launches the external shortcut IME.
+        mShouldAllowSpeakKeysVoiceInput = shouldAllowSpeakKeysVoiceInput(
+                editorInfo, packageNameForPrivateImeOptions);
+        mShouldShowVoiceInputKey = mShouldAllowSpeakKeysVoiceInput
+                && RichInputMethodManager.isInitialized() // avoid crash when only using spell checker
+                && RichInputMethodManager.getInstance().isShortcutImeReady();
 
         mDisableGestureFloatingPreviewText = InputAttributes.inPrivateImeOptions(
                 mPackageNameForPrivateImeOptions, NO_FLOATING_GESTURE_PREVIEW, editorInfo);
@@ -143,11 +149,28 @@ public final class InputAttributes {
 
     public boolean isSameInputType(final EditorInfo editorInfo) {
         return editorInfo.inputType == mInputType && mEditorInfo != null
-                && (mEditorInfo.imeOptions & EditorInfo.IME_FLAG_FORCE_ASCII) == (editorInfo.imeOptions & EditorInfo.IME_FLAG_FORCE_ASCII);
+                && (mEditorInfo.imeOptions & EditorInfo.IME_FLAG_FORCE_ASCII) == (editorInfo.imeOptions & EditorInfo.IME_FLAG_FORCE_ASCII)
+                && mShouldAllowSpeakKeysVoiceInput == shouldAllowSpeakKeysVoiceInput(
+                        editorInfo, mPackageNameForPrivateImeOptions);
     }
 
-    private boolean hasNoMicrophoneKeyOption() {
-        return InputAttributes.inPrivateImeOptions(mPackageNameForPrivateImeOptions, NO_MICROPHONE, mEditorInfo);
+    /**
+     * Returns whether SpeakKeys' built-in microphone is safe to use for the supplied editor.
+     *
+     * <p>This deliberately has no dependency on {@link RichInputMethodManager}: the external
+     * voice-IME shortcut and SpeakKeys' own recorder are independent capabilities.</p>
+     */
+    public static boolean shouldAllowSpeakKeysVoiceInput(final EditorInfo editorInfo,
+            final String packageNameForPrivateImeOptions) {
+        if (editorInfo == null) return false;
+        final int inputType = AppWorkarounds.INSTANCE.adjustInputType(
+                editorInfo.inputType, editorInfo.packageName);
+        if ((inputType & InputType.TYPE_MASK_CLASS) != InputType.TYPE_CLASS_TEXT) return false;
+        final int variation = inputType & InputType.TYPE_MASK_VARIATION;
+        return !InputTypeUtils.isAnyPasswordInputType(inputType)
+                && !InputTypeUtils.isEmailVariation(variation)
+                && !inPrivateImeOptions(
+                        packageNameForPrivateImeOptions, NO_MICROPHONE, editorInfo);
     }
 
     @SuppressWarnings("unused")

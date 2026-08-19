@@ -8,4 +8,7 @@ interface AuthTokenProvider {
     val isSignedIn: Boolean
     val userEmail: String?
     suspend fun getIdToken(): String?
+
+    /** Providers that support it may bypass their token cache after an auth rejection. */
+    suspend fun getIdToken(forceRefresh: Boolean): String? = getIdToken()
 }

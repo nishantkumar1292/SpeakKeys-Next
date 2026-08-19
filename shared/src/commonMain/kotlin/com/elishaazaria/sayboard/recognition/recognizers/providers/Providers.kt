@@ -29,6 +29,11 @@ class Providers(prefs: PreferencesRepository, authTokenProvider: AuthTokenProvid
             ModelType.SarvamCloud -> sarvamCloudProvider.recognizerSourceForModel(localModel)
             ModelType.ProxiedWhisperCloud,
             ModelType.ProxiedSarvamCloud -> proxiedCloudProvider.recognizerSourceForModel(localModel)
+            ModelType.ElevenLabsCloud,
+            ModelType.AndroidOnDevice,
+            ModelType.VoskLocal,
+            ModelType.VoskHindiLocal,
+            ModelType.VoskEnglishIndiaLocal -> null
         }
     }
 

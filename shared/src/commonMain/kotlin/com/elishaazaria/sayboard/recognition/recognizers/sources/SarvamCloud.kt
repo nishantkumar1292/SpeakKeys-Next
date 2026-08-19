@@ -53,6 +53,7 @@ class SarvamCloud(
 
     override fun close(freeRAM: Boolean) {
         if (freeRAM) {
+            myRecognizer?.close()
             myRecognizer = null
         }
     }

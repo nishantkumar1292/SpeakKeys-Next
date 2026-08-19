@@ -35,34 +35,25 @@ object AuthManager {
 
     val uid: String? get() = currentUser?.uid
 
-    private const val MAX_TOKEN_RETRIES = 3
-    private const val INITIAL_RETRY_DELAY_MS = 1000L
-
-    suspend fun getIdToken(): String? {
+    suspend fun getIdToken(forceRefresh: Boolean = false): String? {
         val user = currentUser ?: return null
 
-        repeat(MAX_TOKEN_RETRIES) { attempt ->
-            try {
-                // Always force-refresh to avoid using expired cached tokens
-                return user.getIdToken(true).await().token
-            } catch (e: Exception) {
-                Log.e(TAG, "Token refresh failed (attempt ${attempt + 1}/$MAX_TOKEN_RETRIES)", e)
-                if (attempt < MAX_TOKEN_RETRIES - 1) {
-                    val delay = INITIAL_RETRY_DELAY_MS * (1L shl attempt)
-                    Log.d(TAG, "Retrying in ${delay}ms...")
-                    kotlinx.coroutines.delay(delay)
-                }
-            }
+        return try {
+            // Firebase returns its cached token while it is still valid and refreshes an expired
+            // token itself. HTTP-level retry belongs to the proxy recognizer so token refresh and
+            // request retry cannot multiply into a long, nested delay on release.
+            user.getIdToken(forceRefresh).await().token
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not get Firebase ID token", e)
+            null
         }
-        Log.e(TAG, "All $MAX_TOKEN_RETRIES token attempts exhausted")
-        return null
     }
 
     suspend fun signIn(context: Context): Boolean {
         return try {
             val credentialManager = CredentialManager.create(context)
 
-            val result = try {
+            val oneTapResult = try {
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setServerClientId(webClientId())
                     .setFilterByAuthorizedAccounts(false)
@@ -73,9 +64,15 @@ object AuthManager {
                     .build()
 
                 credentialManager.getCredential(context, request)
+            } catch (e: NoCredentialException) {
+                Log.d(TAG, "No credential available from One Tap; trying Google Sign-In")
+                null
             } catch (e: GetCredentialException) {
                 Log.w(TAG, "One Tap failed, falling back to Sign In With Google", e)
+                null
+            }
 
+            val result = oneTapResult ?: run {
                 val signInOption = GetSignInWithGoogleOption.Builder(webClientId())
                     .build()
 
@@ -83,13 +80,18 @@ object AuthManager {
                     .addCredentialOption(signInOption)
                     .build()
 
-                credentialManager.getCredential(context, request)
+                try {
+                    credentialManager.getCredential(context, request)
+                } catch (e: NoCredentialException) {
+                    Log.d(TAG, "No Google Sign-In credential is available")
+                    return false
+                }
             }
 
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
             val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
             auth.signInWithCredential(firebaseCredential).await()
-            Log.d(TAG, "Sign-in successful: ${currentUser?.email}")
+            Log.d(TAG, "Sign-in successful")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Sign-in failed", e)

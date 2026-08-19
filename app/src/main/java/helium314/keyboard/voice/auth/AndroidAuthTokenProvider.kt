@@ -10,4 +10,7 @@ class AndroidAuthTokenProvider : AuthTokenProvider {
         get() = AuthManager.currentUser?.email
 
     override suspend fun getIdToken(): String? = AuthManager.getIdToken()
+
+    override suspend fun getIdToken(forceRefresh: Boolean): String? =
+        AuthManager.getIdToken(forceRefresh)
 }

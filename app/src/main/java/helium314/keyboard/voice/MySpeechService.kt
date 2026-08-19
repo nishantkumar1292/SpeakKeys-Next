@@ -13,6 +13,7 @@ import androidx.annotation.RequiresPermission
 import com.elishaazaria.sayboard.recognition.RecognitionListener
 import com.elishaazaria.sayboard.recognition.recognizers.Recognizer
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) constructor(
@@ -20,14 +21,24 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
     attributionContext: Context? = null
 ) {
     private val sampleRate: Int
-    private val bufferSize: Int
+    private val deliveryBufferSize: Int
     private val recorder: AudioRecord
+    private val threadLock = Any()
     private var recognizerThread: RecognizerThread? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     init {
         this.sampleRate = sampleRate.toInt()
-        bufferSize = (this.sampleRate.toFloat() * BUFFER_SIZE_SECONDS).roundToInt()
+        deliveryBufferSize = (this.sampleRate.toFloat() * DELIVERY_BUFFER_SECONDS)
+            .roundToInt()
+            .coerceAtLeast(1)
+        val minimumRecorderBufferSize = AudioRecord.getMinBufferSize(
+            this.sampleRate,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        val recorderBufferSize = minimumRecorderBufferSize
+            .coerceAtLeast(deliveryBufferSize * PCM_16_BIT_BYTES_PER_SAMPLE)
         recorder = AudioRecord.Builder().apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && attributionContext != null) {
                 setContext(attributionContext)
@@ -38,7 +49,7 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
                 setSampleRate(this@MySpeechService.sampleRate)
                 setEncoding(AudioFormat.ENCODING_PCM_16BIT)
             }.build())
-            setBufferSizeInBytes(bufferSize * 2)
+            setBufferSizeInBytes(recorderBufferSize)
         }.build()
 
         if (recorder.state == 0) {
@@ -48,12 +59,13 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
     }
 
     fun startListening(listener: RecognitionListener): Boolean {
-        return if (null != recognizerThread) {
-            false
-        } else {
-            recognizerThread = RecognizerThread(listener)
-            recognizerThread!!.start()
-            true
+        synchronized(threadLock) {
+            if (recognizerThread != null) return false
+            return RecognizerThread(listener).let { thread ->
+                recognizerThread = thread
+                thread.start()
+                true
+            }
         }
     }
 
@@ -63,30 +75,44 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
             recorder.preferredDevice = value
         }
 
-    private fun stopRecognizerThread(): Boolean {
-        return if (null == recognizerThread) {
-            false
-        } else {
-            try {
-                recognizerThread!!.interrupt()
-                recognizerThread!!.join()
-            } catch (var2: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-            recognizerThread = null
-            true
-        }
+    /** Requests finalization without blocking the caller. */
+    fun requestFinish(): Boolean = requestRecognizerThreadStop(StopMode.FINISH)
+
+    /** Requests cancellation without blocking the caller. Cancellation never finalizes audio. */
+    fun requestCancel(): Boolean = requestRecognizerThreadStop(StopMode.CANCEL)
+
+    private fun requestRecognizerThreadStop(mode: StopMode): Boolean {
+        val thread = synchronized(threadLock) { recognizerThread } ?: return false
+        thread.requestStop(mode)
+        return true
     }
 
+    /** Waits for a previously requested finish/cancel and releases the thread reference. */
+    fun awaitStopped(): Boolean {
+        val thread = synchronized(threadLock) { recognizerThread } ?: return false
+        try {
+            thread.join()
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        synchronized(threadLock) {
+            if (recognizerThread === thread) recognizerThread = null
+        }
+        return true
+    }
+
+    /** Backwards-compatible finalizing stop. */
     fun stop(): Boolean {
-        return stopRecognizerThread()
+        val requested = requestFinish()
+        if (requested) awaitStopped()
+        return requested
     }
 
+    /** Cancels capture and discards buffered audio without asking the recognizer for a result. */
     fun cancel(): Boolean {
-        if (recognizerThread != null) {
-            recognizerThread!!.setPause(true)
-        }
-        return stopRecognizerThread()
+        val requested = requestCancel()
+        if (requested) awaitStopped()
+        return requested
     }
 
     fun shutdown() {
@@ -94,9 +120,7 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
     }
 
     fun setPause(paused: Boolean) {
-        if (recognizerThread != null) {
-            recognizerThread!!.setPause(paused)
-        }
+        synchronized(threadLock) { recognizerThread }?.setPause(paused)
     }
 
     private fun stopRecorderSafely() {
@@ -118,9 +142,6 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
         @Volatile
         private var paused = false
 
-        @Volatile
-        private var reset = false
-
         init {
             if (timeout != -1) {
                 timeoutSamples = timeout * sampleRate / 1000
@@ -136,29 +157,31 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
 
         override fun run() {
             try {
+                // Every utterance starts from an empty recognizer session. This is especially
+                // important after cancellation, where getFinalResult() is deliberately skipped.
+                if (!resetRecognizerUnlessCancelled(recognizer, finalizationGate)) return
                 recorder.startRecording()
                 if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                     throw IOException("Failed to start recording. Microphone might be already in use.")
                 }
 
-                val buffer = ShortArray(bufferSize)
-                while (!interrupted() && (timeoutSamples == -1 || remainingSamples > 0)) {
+                val buffer = ShortArray(deliveryBufferSize)
+                var lastPartialResult = ""
+                while (!isInterrupted && (timeoutSamples == -1 || remainingSamples > 0)) {
                     val nread = recorder.read(buffer, 0, buffer.size)
                     if (!paused) {
-                        if (reset) {
-                            recognizer.reset()
-                            reset = false
-                        }
                         if (nread < 0) {
                             throw RuntimeException("error reading audio buffer")
                         }
-                        var result: String?
                         if (recognizer.acceptWaveForm(buffer, nread)) {
-                            result = recognizer.getResult()
+                            val result = recognizer.getResult()
                             mainHandler.post { listener.onResult(result) }
                         } else {
-                            result = recognizer.getPartialResult()
-                            mainHandler.post { listener.onPartialResult(result) }
+                            val partial = recognizer.getPartialResult()
+                            if (partial != lastPartialResult) {
+                                lastPartialResult = partial
+                                mainHandler.post { listener.onPartialResult(partial) }
+                            }
                         }
                         if (timeoutSamples != -1) {
                             remainingSamples -= nread
@@ -168,24 +191,115 @@ class MySpeechService @RequiresPermission(Manifest.permission.RECORD_AUDIO) cons
 
                 stopRecorderSafely()
 
-                val finalResult = recognizer.getFinalResult()
-                if (!paused) {
-                    if (timeoutSamples != -1 && remainingSamples <= 0) {
-                        mainHandler.post { listener.onTimeout() }
-                    } else {
-                        mainHandler.post { listener.onFinalResult(finalResult) }
-                    }
-                } else if (finalResult.isNotEmpty()) {
+                val finalResult = finalResultUnlessCancelled(
+                    recognizer,
+                    finalizationGate,
+                    ::cancelRecognizerOnce
+                )
+                    ?: return
+                if (timeoutSamples != -1 && remainingSamples <= 0) {
+                    mainHandler.post { listener.onTimeout() }
+                } else {
                     mainHandler.post { listener.onFinalResult(finalResult) }
                 }
             } catch (e: Exception) {
                 stopRecorderSafely()
-                mainHandler.post { listener.onError(e) }
+                if (!isCancellationRequested()) {
+                    mainHandler.post { listener.onError(e) }
+                } else {
+                    cancelRecognizerOnce()
+                }
             }
+        }
+
+        private val finalizationGate = FinalizationGate()
+        private val recognizerCancelled = AtomicBoolean(false)
+
+        fun requestStop(mode: StopMode) {
+            if (mode == StopMode.CANCEL) {
+                finalizationGate.requestCancel()
+                // Close streaming sockets/queued uploads immediately. The atomic guard also makes
+                // the capture-thread cleanup path safe for provider implementations that expect a
+                // single cancellation callback per utterance.
+                cancelRecognizerOnce()
+            }
+            interrupt()
+        }
+
+        private fun isCancellationRequested(): Boolean =
+            finalizationGate.isCancellationRequested()
+
+        private fun cancelRecognizerOnce() {
+            if (!recognizerCancelled.compareAndSet(false, true)) return
+            runCatching { recognizer.cancel() }
         }
     }
 
     companion object {
-        private const val BUFFER_SIZE_SECONDS = 0.2f
+        private const val DELIVERY_BUFFER_SECONDS = 0.04f
+        private const val PCM_16_BIT_BYTES_PER_SAMPLE = 2
     }
+
+    private enum class StopMode {
+        FINISH, CANCEL
+    }
+}
+
+/**
+ * Thread-safe boundary between capture termination and provider finalization.
+ * A cancellation observed before [beginFinalization] guarantees that the provider is never asked
+ * for a final result. A later cancellation still suppresses delivery of an in-flight result.
+ */
+internal class FinalizationGate {
+    private val lock = Any()
+
+    @Volatile
+    private var cancellationRequested = false
+
+    fun requestCancel() {
+        synchronized(lock) {
+            cancellationRequested = true
+        }
+    }
+
+    fun beginFinalization(): Boolean = synchronized(lock) {
+        if (cancellationRequested) return@synchronized false
+        true
+    }
+
+    fun isCancellationRequested(): Boolean = cancellationRequested
+}
+
+internal fun finalResultUnlessCancelled(
+    recognizer: Recognizer,
+    gate: FinalizationGate,
+    cancelRecognizer: () -> Unit = recognizer::cancel
+): String? {
+    if (!gate.beginFinalization()) {
+        cancelRecognizer()
+        return null
+    }
+    val result = recognizer.getFinalResult()
+    return if (gate.isCancellationRequested()) {
+        // The provider call may already have started, but a canceled session must never publish.
+        cancelRecognizer()
+        null
+    } else {
+        result
+    }
+}
+
+/**
+ * Starts a recognizer generation without allowing a rapid cancel to strand a generation opened
+ * by reset. The second cancellation is intentional: reset may have raced the caller's first one.
+ */
+internal fun resetRecognizerUnlessCancelled(
+    recognizer: Recognizer,
+    gate: FinalizationGate,
+): Boolean {
+    if (gate.isCancellationRequested()) return false
+    recognizer.reset()
+    if (!gate.isCancellationRequested()) return true
+    runCatching { recognizer.cancel() }
+    return false
 }

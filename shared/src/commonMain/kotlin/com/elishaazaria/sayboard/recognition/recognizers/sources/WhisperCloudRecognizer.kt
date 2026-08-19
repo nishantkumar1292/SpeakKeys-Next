@@ -13,7 +13,10 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -22,7 +25,9 @@ class WhisperCloudRecognizer(
     private val apiKey: String,
     override val languageCode: String?,
     private val prompt: String = "",
-    private val transliterateToRoman: Boolean = false
+    private val transliterateToRoman: Boolean = false,
+    private val endpoint: String = OPENAI_API_URL,
+    private val client: HttpClient = HttpClient(),
 ) : Recognizer {
 
     companion object {
@@ -35,26 +40,29 @@ class WhisperCloudRecognizer(
     private val maxBufferSamples = (30 * sampleRate).toInt()
     private val audioBuffer = ShortArray(maxBufferSamples)
     private var bufferPosition = 0
-
-    private var lastResult = ""
-
-    private val client = HttpClient()
+    private var acceptingAudio = false
+    private val bufferMutex = Mutex()
+    private val requestGate = CancellableRecognitionRequest()
 
     override fun reset() {
-        bufferPosition = 0
-        lastResult = ""
+        requestGate.beginGeneration()
+        clearAudioBuffer(acceptNewAudio = true)
     }
 
     override fun acceptWaveForm(buffer: ShortArray?, nread: Int): Boolean {
         if (buffer == null || nread <= 0) return false
-
-        val samplesToAdd = minOf(nread, maxBufferSamples - bufferPosition)
-        if (samplesToAdd > 0) {
-            buffer.copyInto(audioBuffer, bufferPosition, 0, samplesToAdd)
-            bufferPosition += samplesToAdd
+        if (!bufferMutex.tryLock()) return false
+        try {
+            if (!acceptingAudio) return false
+            val samplesToAdd = minOf(nread, buffer.size, maxBufferSamples - bufferPosition)
+            if (samplesToAdd > 0) {
+                buffer.copyInto(audioBuffer, bufferPosition, 0, samplesToAdd)
+                bufferPosition += samplesToAdd
+            }
+            return bufferPosition >= maxBufferSamples
+        } finally {
+            bufferMutex.unlock()
         }
-
-        return bufferPosition >= maxBufferSamples
     }
 
     override fun getResult(): String = ""
@@ -62,26 +70,47 @@ class WhisperCloudRecognizer(
     override fun getPartialResult(): String = ""
 
     override fun getFinalResult(): String {
-        if (bufferPosition == 0) return ""
+        val generation = requestGate.currentGeneration()
+        val samples = runBlocking {
+            bufferMutex.withLock {
+                if (!acceptingAudio || bufferPosition == 0) null
+                else audioBuffer.copyOf(bufferPosition)
+            }
+        } ?: return ""
 
-        Logger.d(TAG, "Transcribing $bufferPosition samples (${bufferPosition / sampleRate} seconds)")
-        runBlocking { transcribe() }
-        val result = lastResult
-        lastResult = ""
-        return result
+        Logger.d(TAG, "Transcribing ${samples.size} samples (${samples.size / sampleRate} seconds)")
+        return try {
+            runBlocking {
+                requestGate.runIfCurrent(generation) { transcribe(samples) }
+            }.orEmpty()
+        } catch (_: CancellationException) {
+            ""
+        } finally {
+            requestGate.ifCurrent(generation) { clearAudioBuffer(acceptNewAudio = false) }
+        }
     }
 
-    private suspend fun transcribe() {
+    override fun cancel() {
+        requestGate.cancelGeneration()
+        clearAudioBuffer(acceptNewAudio = false)
+    }
+
+    fun close() {
+        cancel()
+        client.close()
+    }
+
+    private suspend fun transcribe(samples: ShortArray): String {
         if (apiKey.isEmpty()) {
             Logger.e(TAG, "No API key configured")
-            return
+            return ""
         }
 
-        val wavBytes = WavEncoder.createWavBytes(audioBuffer, bufferPosition, sampleRate.toInt())
+        val wavBytes = WavEncoder.createWavBytes(samples, samples.size, sampleRate.toInt())
         Logger.d(TAG, "Created WAV: ${wavBytes.size} bytes")
 
-        try {
-            val response = client.post(OPENAI_API_URL) {
+        return try {
+            val response = client.post(endpoint) {
                 header("Authorization", "Bearer $apiKey")
                 setBody(MultiPartFormDataContent(formData {
                     append("file", wavBytes, Headers.build {
@@ -107,14 +136,26 @@ class WhisperCloudRecognizer(
                     text = DevanagariTransliterator.transliterate(text)
                 }
 
-                lastResult = removeSpaceForLocale(text)
+                removeSpaceForLocale(text)
             } else {
                 Logger.e(TAG, "API error: ${response.status.value}")
+                ""
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             Logger.e(TAG, "Transcription failed", e)
+            ""
         }
+    }
 
-        bufferPosition = 0
+    private fun clearAudioBuffer(acceptNewAudio: Boolean) {
+        runBlocking {
+            bufferMutex.withLock {
+                audioBuffer.fill(0, 0, bufferPosition)
+                bufferPosition = 0
+                acceptingAudio = acceptNewAudio
+            }
+        }
     }
 }

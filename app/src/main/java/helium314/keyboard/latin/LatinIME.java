@@ -894,6 +894,17 @@ public class LatinIME extends InputMethodService implements
             EditorInfoCompatUtils.INSTANCE.debugLog(editorInfo, TAG);
         }
 
+        // Recompute on every start, even if HeliBoard can reuse the rest of SettingsValues. Apps
+        // may change password/noMicrophone policy while retaining the same input type.
+        final boolean speakKeysVoiceAllowed = InputAttributes.shouldAllowSpeakKeysVoiceInput(
+                editorInfo, getPackageName());
+        if (hasSuggestionStripView()) {
+            mSuggestionStripView.updateSpeakKeysVoiceEligibility(speakKeysVoiceAllowed);
+        }
+        if (mVoiceInputManager != null) {
+            mVoiceInputManager.onEditorVoiceEligibilityChanged(speakKeysVoiceAllowed);
+        }
+
         // In landscape mode, this method gets called without the input view being created.
         if (mainKeyboardView == null) {
             return;
@@ -1755,7 +1766,8 @@ public class LatinIME extends InputMethodService implements
         if (text.isEmpty()) {
             return;
         }
-        mInputLogic.mConnection.finishComposingText();
+        mHandler.cancelUpdateSuggestionStrip();
+        mInputLogic.prepareForExternalTextCommit();
         mInputLogic.mConnection.commitText(text, 1);
         mHandler.postUpdateSuggestionStrip(SuggestedWords.INPUT_STYLE_NONE);
     }
@@ -1884,6 +1896,9 @@ public class LatinIME extends InputMethodService implements
             case TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL, TRIM_MEMORY_COMPLETE -> {
                 KeyboardLayoutSet.onSystemLocaleChanged(); // clears caches, nothing else
                 mKeyboardSwitcher.trimMemory();
+                if (mVoiceInputManager != null) {
+                    mVoiceInputManager.onTrimMemory();
+                }
             }
             // deallocateMemory always called on hiding, and should not be called when showing
         }
